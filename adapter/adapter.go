@@ -62,9 +62,61 @@ func ParseV2ray(s string) (constant.Proxy, error) {
 		return ParseLinkVmess(s)
 	case "vless":
 		return ParseLinkVless(s)
+	case "ss":
+		return ParseLinkSS(s)
 	default:
 		return nil, fmt.Errorf("know scheme")
 	}
+}
+
+func ParseLinkSS(s string) (constant.Proxy, error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return nil, err
+	}
+
+	port, _ := strconv.Atoi(u.Port())
+
+	var cipher, password string
+
+	// 对username解析
+	base64Str, err := base64.StdEncoding.DecodeString(u.User.String())
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return nil, err
+	}
+
+	userSplit := strings.Split(string(base64Str), ":")
+	if len(userSplit) > 0 {
+		cipher = userSplit[0]
+	}
+
+	if len(userSplit) > 1 {
+		password = userSplit[1]
+	}
+
+	opt := outbound.ShadowSocksOption{
+		BasicOption: outbound.BasicOption{},
+		Name:        u.Fragment,
+		Server:      u.Hostname(),
+		Port:        port,
+		Password:    password,
+		Cipher:      cipher,
+		UDP:         true,
+		Plugin:      "",
+		PluginOpts:  nil,
+	}
+
+	log.Debugf("ss opt:%+v", opt)
+
+	at, err := outbound.NewShadowSocks(opt)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return nil, err
+	}
+
+	return adapter.NewProxy(at), nil
 }
 
 func ParseLinkTrojan(s string) (constant.Proxy, error) {

@@ -157,6 +157,14 @@ func TestParseV2ray(t *testing.T) {
 			name: "",
 			args: "vless://b03241a5-f3c5-4750-eba5-3cd4967e4dd7@fuqing.tk:443?encryption=none&security=tls&sni=fuqing.tk&type=ws&host=fuqing.tk&path=%2fdate2021#%e3%80%90%e5%9b%ba%e5%ae%9aIP%e3%80%91%e6%97%a5%e6%9c%ac12-%e8%a7%a3%e9%94%81%e6%b5%81%e5%aa%92%e4%bd%93",
 		},
+		{
+			name: "",
+			args: "vless://944492c4-8d07-44ee-b6db-b4a14120c039@www.scsl028.tk:443?encryption=none&security=tls&sni=www.scsl028.tk&type=tcp&headerType=none#%e3%80%90%e5%9b%ba%e5%ae%9aIP%e3%80%91%e7%be%8e%e5%9b%bd12-%e8%a7%a3%e9%94%81%e6%b5%81%e5%aa%92%e4%bd%93",
+		},
+		{
+			name: "",
+			args: "ss://YWVzLTI1Ni1nY206VEV6amZBWXEySWp0dW9T@134.195.196.3:6697#(%f0%9f%87%a8%f0%9f%87%a6%e5%8a%a0%e6%8b%bf%e5%a4%a7)%e4%b8%96%e4%b8%8a%e7%99%be%e5%88%86%e4%b9%8b%e4%b9%9d%e5%8d%81%e4%b9%9d%e7%9a%84%e4%ba%8b%e8%83%bd%e7%94%a8%e9%92%b1%e8%a7%a3%e5%86%b3%ef%bc%8c%e5%89%a9%e4%b8%8b%e7%99%be%e5%88%86%e4%b9%8b%e4%b8%80%e7%9a%84%e6%98%af%e9%9c%80%e8%a6%81%e6%9b%b4%e5%a4%9a%e7%9a%84%e9%92%b1%e8%a7%a3%e5%86%b3%e3%80%82",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
