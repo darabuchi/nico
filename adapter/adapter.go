@@ -10,23 +10,23 @@ import (
 
 	"github.com/Dreamacro/clash/adapter"
 	"github.com/Dreamacro/clash/adapter/outbound"
-	"github.com/Dreamacro/clash/constant"
 	"github.com/darabuchi/log"
+	"github.com/elliotchance/pie/pie"
 	"github.com/valyala/fastjson"
 	"gopkg.in/yaml.v3"
 )
 
-func ParseClash(m map[string]any) (constant.Proxy, error) {
+func ParseClash(m map[string]any) (Proxy, error) {
 	p, err := adapter.ParseProxy(m)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
 
-	return p, nil
+	return NewProxyAdapter(p, m)
 }
 
-func ParseClashJson(s []byte) (constant.Proxy, error) {
+func ParseClashJson(s []byte) (Proxy, error) {
 	var m map[string]any
 	err := json.Unmarshal(s, &m)
 	if err != nil {
@@ -37,7 +37,7 @@ func ParseClashJson(s []byte) (constant.Proxy, error) {
 	return ParseClash(m)
 }
 
-func ParseClashYaml(s []byte) (constant.Proxy, error) {
+func ParseClashYaml(s []byte) (Proxy, error) {
 	var m map[string]any
 	err := yaml.Unmarshal(s, &m)
 	if err != nil {
@@ -48,7 +48,7 @@ func ParseClashYaml(s []byte) (constant.Proxy, error) {
 	return ParseClash(m)
 }
 
-func ParseV2ray(s string) (constant.Proxy, error) {
+func ParseV2ray(s string) (Proxy, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -69,7 +69,7 @@ func ParseV2ray(s string) (constant.Proxy, error) {
 	}
 }
 
-func ParseLinkSS(s string) (constant.Proxy, error) {
+func ParseLinkSS(s string) (Proxy, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -116,10 +116,10 @@ func ParseLinkSS(s string) (constant.Proxy, error) {
 		return nil, err
 	}
 
-	return adapter.NewProxy(at), nil
+	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkTrojan(s string) (constant.Proxy, error) {
+func ParseLinkTrojan(s string) (Proxy, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -150,6 +150,15 @@ func ParseLinkTrojan(s string) (constant.Proxy, error) {
 		alpn = append(alpn, transformType)
 	}
 
+	for _, val := range strings.Split(u.Query().Get("alpn"), ",") {
+		if val == "" {
+			continue
+		}
+		alpn = append(alpn, val)
+	}
+
+	alpn = pie.Strings(alpn).Unique()
+
 	port, _ := strconv.Atoi(u.Port())
 
 	opt := outbound.TrojanOption{
@@ -165,7 +174,7 @@ func ParseLinkTrojan(s string) (constant.Proxy, error) {
 		SNI:            sni,
 		SkipCertVerify: true,
 		UDP:            true,
-		Network:        "",
+		Network:        transformType,
 		GrpcOpts: outbound.GrpcOptions{
 			GrpcServiceName: "",
 		},
@@ -180,10 +189,10 @@ func ParseLinkTrojan(s string) (constant.Proxy, error) {
 		return nil, err
 	}
 
-	return adapter.NewProxy(at), nil
+	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkVless(s string) (constant.Proxy, error) {
+func ParseLinkVless(s string) (Proxy, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -241,10 +250,10 @@ func ParseLinkVless(s string) (constant.Proxy, error) {
 		return nil, err
 	}
 
-	return adapter.NewProxy(at), nil
+	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkVmess(s string) (constant.Proxy, error) {
+func ParseLinkVmess(s string) (Proxy, error) {
 	base64Str, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(s, "vmess://"))
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -324,5 +333,5 @@ func ParseLinkVmess(s string) (constant.Proxy, error) {
 		return nil, err
 	}
 
-	return adapter.NewProxy(at), nil
+	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
