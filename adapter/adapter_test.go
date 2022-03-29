@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "ss://YWVzLTI1Ni1nY206UENubkg2U1FTbmZvUzI3@134.195.196.51:8090#%E5%8A%A0%E6%8B%BF%E5%A4%A7_Tg%E9%A2%91%E9%81%93%3Ahttps%3A%2F%2Ft.me%2Fbpjzx2_3",
+			args: "vmess://ew0KICAidiI6ICIyIiwNCiAgInBzIjogIkEtYVYyUkFZLUNNQ0Mt6aaZ5rivLUEwMSIsDQogICJhZGQiOiAic2gueGlhb2hvdXppLmNsdWIiLA0KICAicG9ydCI6ICIyNTIzMSIsDQogICJpZCI6ICI1ZTIzNTViYy0yN2QyLTM3NjAtODA0OS0xZTdkNDQzYmEzY2UiLA0KICAiYWlkIjogIjEiLA0KICAic2N5IjogImF1dG8iLA0KICAibmV0IjogIndzIiwNCiAgInR5cGUiOiAibm9uZSIsDQogICJob3N0IjogInd3dy5pYm0uY29tIiwNCiAgInBhdGgiOiAiL3YycmF5IiwNCiAgInRscyI6ICIiLA0KICAic25pIjogIiIsDQogICJhbHBuIjogIiINCn0=",
 		},
 	}
 	for _, tt := range tests {

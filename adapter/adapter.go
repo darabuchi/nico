@@ -272,7 +272,7 @@ func ParseLinkVmess(s string) (Proxy, error) {
 		wsOpts = outbound.WSOptions{
 			Path: string(j.GetStringBytes("path")),
 			Headers: map[string]string{
-				"host": string(j.GetStringBytes("host")),
+				"Host": string(j.GetStringBytes("host")),
 			},
 			MaxEarlyData:        0,
 			EarlyDataHeaderName: "",
@@ -283,12 +283,12 @@ func ParseLinkVmess(s string) (Proxy, error) {
 		BasicOption: outbound.BasicOption{},
 		Name:        string(j.GetStringBytes("ps")),
 		Server: string(func() []byte {
-			host := j.GetStringBytes("host")
+			host := j.GetStringBytes("add")
 			if string(host) != "" {
 				return host
 			}
 
-			return j.GetStringBytes("add")
+			return j.GetStringBytes("host")
 		}()),
 		Port:    getInt(j, "port"),
 		UUID:    string(j.GetStringBytes("id")),

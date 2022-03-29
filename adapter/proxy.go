@@ -1,28 +1,50 @@
 package adapter
 
 import (
+	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"net/url"
 	"reflect"
+	"time"
 
 	"github.com/Dreamacro/clash/adapter/outbound"
 	"github.com/Dreamacro/clash/constant"
+	"github.com/Luoxin/faker"
 	"github.com/darabuchi/log"
+	"github.com/darabuchi/utils"
 	"github.com/elliotchance/pie/pie"
 	"gopkg.in/yaml.v3"
 )
 
 type Proxy interface {
 	constant.Proxy
+	Cache
 
 	Sub4V2ray() string
 	Sub4Clash() string
 	UniqueId() string
+
+	DoRequest(method, rawUrl string, body io.Reader, timeout time.Duration, headers map[string]string, logic func(resp *http.Response, start time.Time) error) error
+
+	Get(url string, timeout time.Duration, headers map[string]string) ([]byte, error)
+
+	Post(url string, body []byte, timeout time.Duration, headers map[string]string) ([]byte, error)
+	PostJson(url string, reqBody, rspBody any, timeout time.Duration, headers map[string]string) error
 }
+
+//go:generate pie ProxyList.*
+type ProxyList []Proxy
 
 type ProxyAdapter struct {
 	constant.Proxy
+	Cache
 
 	opt map[string]any
 
@@ -31,11 +53,13 @@ type ProxyAdapter struct {
 	name string
 }
 
-func NewProxyAdapter(adapter constant.Proxy, opt interface{}) (Proxy, error) {
+func NewProxyAdapter(adapter constant.Proxy, opt any) (Proxy, error) {
 	p := &ProxyAdapter{
 		Proxy: adapter,
 		name:  adapter.Name(),
 	}
+
+	p.Cache = NewAdapterCache()
 
 	switch v := opt.(type) {
 	case map[string]any:
@@ -63,8 +87,8 @@ func NewProxyAdapter(adapter constant.Proxy, opt interface{}) (Proxy, error) {
 
 	delete(p.opt, "Name")
 
-	var updateUnionId func(opt interface{}) string
-	updateUnionId = func(value interface{}) string {
+	var updateUnionId func(opt any) string
+	updateUnionId = func(value any) string {
 		if value == nil {
 			return ""
 		}
@@ -107,7 +131,11 @@ func NewProxyAdapter(adapter constant.Proxy, opt interface{}) (Proxy, error) {
 		return unionId
 	}
 
-	p.uniqueId = updateUnionId(p.opt)
+	p.uniqueId = utils.Sha384(updateUnionId(p.opt))
+
+	if p.name == "" {
+		p.name = utils.ShortStr(p.uniqueId, 12)
+	}
 
 	return p, nil
 }
@@ -200,12 +228,184 @@ func (p *ProxyAdapter) UniqueId() string {
 	return p.uniqueId
 }
 
+func (p *ProxyAdapter) DoRequest(method, rawUrl string, body io.Reader, timeout time.Duration, headers map[string]string, logic func(resp *http.Response, start time.Time) error) error {
+
+	if timeout == 0 {
+		timeout = time.Second * 5
+	}
+
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return err
+	}
+
+	request, err := http.NewRequest(method, rawUrl, body)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	request.Header.Set("User-Agent", faker.New().UserAgent())
+	request.Header.Set("Upgrade-Insecure-Requests", "1")
+	request.Header.Set("Host", "www.google.com")
+	request.Header.Set("accept-language", "en-US,en;q=0.5")
+	request.Header.Set("sec-fetch-dest", "document")
+	request.Header.Set("sec-fetch-mode", "navigate")
+	request.Header.Set("sec-fetch-site", "none")
+	request.Header.Set("sec-fetch-user", "?1")
+	request.Header.Set("sec-gpc", "1")
+	request.Header.Set("Accept-Encoding", "gzip, deflate")
+	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+
+	for k, v := range headers {
+		request.Header.Set(k, v)
+	}
+
+	start := time.Now()
+
+	instance, err := p.DialContext(context.TODO(), &constant.Metadata{
+		AddrType: constant.AtypDomainName,
+		Host:     u.Hostname(),
+		DstPort: func() string {
+			if u.Port() != "" {
+				return u.Port()
+			}
+
+			switch u.Scheme {
+			case "http":
+				return "80"
+			case "https":
+				return "443"
+			}
+			return ""
+		}(),
+	})
+	if err != nil {
+		return err
+	}
+	defer instance.Close()
+
+	client := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return instance, nil
+			},
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+			TLSHandshakeTimeout:   time.Second * 3,
+			DisableCompression:    true,
+			IdleConnTimeout:       time.Second * 3,
+			DisableKeepAlives:     true,
+			ResponseHeaderTimeout: time.Second * 3,
+			ForceAttemptHTTP2:     false,
+		},
+
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	err = logic(resp, start)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (p *ProxyAdapter) Get(url string, timeout time.Duration, headers map[string]string) ([]byte, error) {
+	var buf []byte
+	err := p.DoRequest(http.MethodGet, url, nil, timeout, headers, func(resp *http.Response, start time.Time) error {
+		var err error
+		buf, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+func (p *ProxyAdapter) Post(url string, body []byte, timeout time.Duration, headers map[string]string) ([]byte, error) {
+	var buf []byte
+	err := p.DoRequest(http.MethodPost, url, bytes.NewBuffer(body), timeout, headers, func(resp *http.Response, start time.Time) error {
+		var err error
+		buf, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+func (p *ProxyAdapter) PostJson(url string, reqBody, rspBody any, timeout time.Duration, headers map[string]string) error {
+	var reqBuf, rspBuf []byte
+
+	var err error
+	switch x := reqBody.(type) {
+	case string:
+		reqBuf = []byte(x)
+	case []byte:
+		reqBuf = x
+	default:
+		reqBuf, err = json.Marshal(x)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return err
+		}
+	}
+
+	rspBuf, err = p.Post(url, reqBuf, timeout, headers)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	err = json.Unmarshal(rspBuf, rspBody)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (p *ProxyAdapter) Clone() Proxy {
 	np := &ProxyAdapter{
 		Proxy:    p.Proxy,
+		Cache:    NewAdapterCache(),
 		opt:      p.opt,
 		uniqueId: p.uniqueId,
+		name:     p.name,
 	}
 
 	return np
+}
+
+func (p *ProxyAdapter) Name() string {
+	return p.name
 }
