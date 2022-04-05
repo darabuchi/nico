@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/Dreamacro/clash/adapter/outbound"
@@ -23,12 +24,72 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Proxy interface {
+type AdapterType int
+
+const (
+	Direct AdapterType = iota
+	Reject
+	Proxy
+)
+
+func (at AdapterType) String() string {
+	switch at {
+	case Direct:
+		return "Direct"
+	case Reject:
+		return "Reject"
+	case Proxy:
+		return "Proxy"
+	default:
+		return "Unknown"
+	}
+}
+
+func ParseAdapterType(at string) AdapterType {
+	switch at {
+	case "Direct":
+		return Direct
+	case "Reject":
+		return Reject
+	case "Proxy":
+		return Proxy
+	default:
+		return -1
+	}
+}
+
+func CoverAdapterType(at constant.AdapterType) AdapterType {
+	switch at {
+	case constant.Direct:
+		return Direct
+	case constant.Reject:
+		return Reject
+	case constant.Shadowsocks:
+		fallthrough
+	case constant.ShadowsocksR:
+		fallthrough
+	case constant.Snell:
+		fallthrough
+	case constant.Socks5:
+		fallthrough
+	case constant.Http:
+		fallthrough
+	case constant.Vmess:
+		fallthrough
+	case constant.Trojan:
+		return Proxy
+	default:
+		return -1
+	}
+}
+
+type AdapterProxy interface {
 	constant.Proxy
 	Cache
 
-	Sub4V2ray() string
+	Sub4Nico() string
 	Sub4Clash() string
+	Sub4V2ray() string
 	UniqueId() string
 
 	DoRequest(method, rawUrl string, body io.Reader, timeout time.Duration, headers map[string]string, logic func(resp *http.Response, start time.Time) error) error
@@ -40,11 +101,12 @@ type Proxy interface {
 }
 
 //go:generate pie ProxyList.*
-type ProxyList []Proxy
+type ProxyList []AdapterProxy
 
 type ProxyAdapter struct {
 	constant.Proxy
 	Cache
+	ExtraInfo
 
 	opt map[string]any
 
@@ -53,7 +115,7 @@ type ProxyAdapter struct {
 	name string
 }
 
-func NewProxyAdapter(adapter constant.Proxy, opt any) (Proxy, error) {
+func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 	p := &ProxyAdapter{
 		Proxy: adapter,
 		name:  adapter.Name(),
@@ -64,6 +126,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (Proxy, error) {
 	switch v := opt.(type) {
 	case map[string]any:
 		p.opt = v
+		p.ExtraInfo = ParseClash4Extra(v)
 	case outbound.ShadowSocksOption,
 		outbound.VlessOption,
 		outbound.VmessOption,
@@ -82,7 +145,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (Proxy, error) {
 		}
 
 	default:
-		return nil, fmt.Errorf("know %s", reflect.TypeOf(opt))
+		return nil, fmt.Errorf("unknown %s", reflect.TypeOf(opt))
 	}
 
 	delete(p.opt, "Name")
@@ -125,7 +188,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (Proxy, error) {
 			}
 			unionId = fmt.Sprintf(`["%s"]`, vals.Join(`","`))
 		default:
-			log.Panicf("know type:%v,value:%v", reflect.TypeOf(value), value)
+			log.Panicf("unknown type:%v,value:%v", reflect.TypeOf(value), value)
 		}
 
 		return unionId
@@ -136,6 +199,9 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (Proxy, error) {
 	if p.name == "" {
 		p.name = utils.ShortStr(p.uniqueId, 12)
 	}
+
+	p.name = strings.TrimSuffix(p.name, "\n")
+	p.name = strings.TrimSuffix(p.name, "\r")
 
 	return p, nil
 }
@@ -150,6 +216,15 @@ func (p *ProxyAdapter) cloneOpt() map[string]any {
 	o["Name"] = p.name
 
 	return o
+}
+
+func (p *ProxyAdapter) Sub4Nico() string {
+	buf, err := yaml.Marshal(p.cloneOpt())
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return ""
+	}
+	return string(buf)
 }
 
 func (p *ProxyAdapter) Sub4Clash() string {
@@ -216,7 +291,7 @@ func (p *ProxyAdapter) Sub4V2ray() string {
 		setQuery("headerType", "none")
 
 	default:
-		log.Panicf("know type %s", p.Type())
+		log.Panicf("unknown type %s", p.Type())
 	}
 
 	u.RawQuery = query.Encode()
@@ -394,7 +469,7 @@ func (p *ProxyAdapter) PostJson(url string, reqBody, rspBody any, timeout time.D
 	return nil
 }
 
-func (p *ProxyAdapter) Clone() Proxy {
+func (p *ProxyAdapter) Clone() AdapterProxy {
 	np := &ProxyAdapter{
 		Proxy:    p.Proxy,
 		Cache:    NewAdapterCache(),

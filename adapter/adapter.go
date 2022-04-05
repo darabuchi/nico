@@ -16,7 +16,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func ParseClash(m map[string]any) (Proxy, error) {
+func ParseClash(m map[string]any) (AdapterProxy, error) {
 	p, err := adapter.ParseProxy(m)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -26,7 +26,7 @@ func ParseClash(m map[string]any) (Proxy, error) {
 	return NewProxyAdapter(p, m)
 }
 
-func ParseClashJson(s []byte) (Proxy, error) {
+func ParseClashJson(s []byte) (AdapterProxy, error) {
 	var m map[string]any
 	err := json.Unmarshal(s, &m)
 	if err != nil {
@@ -37,7 +37,7 @@ func ParseClashJson(s []byte) (Proxy, error) {
 	return ParseClash(m)
 }
 
-func ParseClashYaml(s []byte) (Proxy, error) {
+func ParseClashYaml(s []byte) (AdapterProxy, error) {
 	var m map[string]any
 	err := yaml.Unmarshal(s, &m)
 	if err != nil {
@@ -48,7 +48,7 @@ func ParseClashYaml(s []byte) (Proxy, error) {
 	return ParseClash(m)
 }
 
-func ParseV2ray(s string) (Proxy, error) {
+func ParseV2ray(s string) (AdapterProxy, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -65,12 +65,22 @@ func ParseV2ray(s string) (Proxy, error) {
 	case "ss":
 		return ParseLinkSS(s)
 	default:
-		return nil, fmt.Errorf("know scheme")
+		return nil, fmt.Errorf("unknown scheme")
 	}
 }
 
-func ParseLinkSS(s string) (Proxy, error) {
-	u, err := url.Parse(s)
+func ParseLinkSS(s string) (AdapterProxy, error) {
+	var urlStr string
+	base64Str, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(s, "ss://"))
+	if err != nil {
+		log.Debugf("err:%v", err)
+		// 如果不是base64，那就是明文
+		urlStr = "ss://" + string(base64Str)
+	} else {
+		urlStr = s
+	}
+
+	u, err := url.Parse(urlStr)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
@@ -81,13 +91,17 @@ func ParseLinkSS(s string) (Proxy, error) {
 	var cipher, password string
 
 	// 对username解析
-	base64Str, err := base64.StdEncoding.DecodeString(u.User.String())
+	var userStr string
+	base64Str, err = base64.StdEncoding.DecodeString(u.User.String())
 	if err != nil {
-		log.Errorf("err:%v", err)
-		return nil, err
+		log.Debugf("err:%v", err)
+		// 如果不是base64，那就是明文
+		userStr = u.User.String()
+	} else {
+		userStr = string(base64Str)
 	}
 
-	userSplit := strings.Split(string(base64Str), ":")
+	userSplit := strings.Split(userStr, ":")
 	if len(userSplit) > 0 {
 		cipher = userSplit[0]
 	}
@@ -119,7 +133,7 @@ func ParseLinkSS(s string) (Proxy, error) {
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkTrojan(s string) (Proxy, error) {
+func ParseLinkTrojan(s string) (AdapterProxy, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -192,7 +206,7 @@ func ParseLinkTrojan(s string) (Proxy, error) {
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkVless(s string) (Proxy, error) {
+func ParseLinkVless(s string) (AdapterProxy, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -253,7 +267,7 @@ func ParseLinkVless(s string) (Proxy, error) {
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkVmess(s string) (Proxy, error) {
+func ParseLinkVmess(s string) (AdapterProxy, error) {
 	base64Str, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(s, "vmess://"))
 	if err != nil {
 		log.Errorf("err:%v", err)

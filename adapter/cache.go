@@ -149,7 +149,7 @@ func (p *AdapterCache) LoadUint16(key string) uint16 {
 		}
 		return uint16(val)
 	default:
-		log.Panic("know how to handle")
+		log.Panic("unknown how to handle")
 		return 0
 	}
 }
@@ -206,7 +206,7 @@ func (p *AdapterCache) LoadFloat64(key string) float64 {
 		}
 		return val
 	default:
-		log.Panic("know how to handle")
+		log.Panic("unknown how to handle")
 		return 0
 	}
 }

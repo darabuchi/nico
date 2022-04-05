@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "vmess://ew0KICAidiI6ICIyIiwNCiAgInBzIjogIkEtYVYyUkFZLUNNQ0Mt6aaZ5rivLUEwMSIsDQogICJhZGQiOiAic2gueGlhb2hvdXppLmNsdWIiLA0KICAicG9ydCI6ICIyNTIzMSIsDQogICJpZCI6ICI1ZTIzNTViYy0yN2QyLTM3NjAtODA0OS0xZTdkNDQzYmEzY2UiLA0KICAiYWlkIjogIjEiLA0KICAic2N5IjogImF1dG8iLA0KICAibmV0IjogIndzIiwNCiAgInR5cGUiOiAibm9uZSIsDQogICJob3N0IjogInd3dy5pYm0uY29tIiwNCiAgInBhdGgiOiAiL3YycmF5IiwNCiAgInRscyI6ICIiLA0KICAic25pIjogIiIsDQogICJhbHBuIjogIiINCn0=",
+			args: "trojan://E73EAC23-83C8-AC21-E491-A6F3FC7C1FE0@shdata1.ourdvsss.xyz:12122?security=tls&sni=douyincdn.com&type=tcp&headerType=none#%f0%9f%87%ba%f0%9f%87%b8+%e7%be%8e%e5%9b%bd02",
 		},
 	}
 	for _, tt := range tests {
