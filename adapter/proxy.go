@@ -175,6 +175,24 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 			})
 
 			unionId = fmt.Sprintf("{%s}", unionId)
+		case map[any]any:
+			var keys pie.Strings
+			nopt := map[string]any{}
+			for key := range opt {
+				keys = append(keys, fmt.Sprintf("%v", key))
+				nopt[fmt.Sprintf("%v", key)] = opt[key]
+			}
+
+			keys.Each(func(key string) {
+				val := nopt[key]
+				if value == nil {
+					return
+				}
+
+				unionId = fmt.Sprintf("%s:%v", key, updateUnionId(val))
+			})
+
+			unionId = fmt.Sprintf("{%s}", unionId)
 		case string, []byte,
 			uint32, uint64, uint, uint8,
 			float64, float32,
@@ -199,6 +217,8 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 	if p.name == "" {
 		p.name = utils.ShortStr(p.uniqueId, 12)
 	}
+
+	p.opt["unique_id"] = p.uniqueId
 
 	p.name = strings.TrimSuffix(p.name, "\n")
 	p.name = strings.TrimSuffix(p.name, "\r")

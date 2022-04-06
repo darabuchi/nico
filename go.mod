@@ -5,11 +5,13 @@ go 1.18
 require (
 	github.com/Dreamacro/clash v1.10.0
 	github.com/Luoxin/faker v0.0.0-20210916064730-fb0777f90022
+	github.com/darabuchi/enputi v0.0.8
 	github.com/darabuchi/log v0.0.0-20220323032131-710e5e1eab84
 	github.com/darabuchi/utils v0.0.0-20220304085619-06c94ec832ef
 	github.com/elliotchance/pie v1.38.2
 	github.com/spf13/viper v1.8.1
 	github.com/valyala/fastjson v1.6.3
+	go.uber.org/atomic v1.9.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
 
@@ -20,7 +22,6 @@ require (
 	github.com/aofei/sandid v1.2.0 // indirect
 	github.com/axgle/mahonia v0.0.0-20180208002826-3358181d7394 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
-	github.com/darabuchi/enputi v0.0.8 // indirect
 	github.com/eddieivan01/nic v0.3.1 // indirect
 	github.com/ethereum/go-ethereum v1.10.11 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
@@ -55,7 +56,6 @@ require (
 	github.com/valyala/fasthttp v1.30.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xtls/go v0.0.0-20210920065950-d4af136d3672 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064 // indirect
