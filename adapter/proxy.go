@@ -236,7 +236,7 @@ func (p *ProxyAdapter) cloneOpt() map[string]any {
 		o[k] = v
 	}
 
-	o["Name"] = p.name
+	o["name"] = p.name
 
 	return o
 }
