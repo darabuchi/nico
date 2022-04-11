@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "trojan://E73EAC23-83C8-AC21-E491-A6F3FC7C1FE0@shdata1.ourdvsss.xyz:12122?security=tls&sni=douyincdn.com&type=tcp&headerType=none#%f0%9f%87%ba%f0%9f%87%b8+%e7%be%8e%e5%9b%bd02",
+			args: "ss://YWVzLTEyOC1nY206Y2VkNTIzNTQtYmVjMi00MjA5LTkxMjEtYjU3ZDNkZmI1OWU5@cn1.iepl.starlink.st:50500#%e6%96%b0%e5%8a%a0%e5%9d%a1_IEPL",
 		},
 	}
 	for _, tt := range tests {

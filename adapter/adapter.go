@@ -3,7 +3,7 @@ package adapter
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -16,10 +16,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	ErrUnsupportedType = errors.New("unsupported type")
+)
+
 func ParseClash(m map[string]any) (AdapterProxy, error) {
 	p, err := adapter.ParseProxy(m)
 	if err != nil {
 		log.Errorf("err:%v", err)
+
+		if strings.Contains(err.Error(), "unsupport proxy type") {
+			return nil, ErrUnsupportedType
+		}
+
 		return nil, err
 	}
 
@@ -49,6 +58,9 @@ func ParseClashYaml(s []byte) (AdapterProxy, error) {
 }
 
 func ParseV2ray(s string) (AdapterProxy, error) {
+	s = strings.TrimSuffix(s, "\n")
+	s = strings.TrimSuffix(s, "\r")
+
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -65,7 +77,7 @@ func ParseV2ray(s string) (AdapterProxy, error) {
 	case "ss":
 		return ParseLinkSS(s)
 	default:
-		return nil, fmt.Errorf("unknown scheme")
+		return nil, ErrUnsupportedType
 	}
 }
 
@@ -75,9 +87,9 @@ func ParseLinkSS(s string) (AdapterProxy, error) {
 	if err != nil {
 		log.Debugf("err:%v", err)
 		// 如果不是base64，那就是明文
-		urlStr = "ss://" + string(base64Str)
-	} else {
 		urlStr = s
+	} else {
+		urlStr = "ss://" + string(base64Str)
 	}
 
 	u, err := url.Parse(urlStr)

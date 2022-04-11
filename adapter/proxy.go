@@ -90,6 +90,9 @@ type AdapterProxy interface {
 	Sub4Nico() string
 	Sub4Clash() string
 	Sub4V2ray() string
+
+	ToNico() map[string]any
+
 	UniqueId() string
 
 	DoRequest(method, rawUrl string, body io.Reader, timeout time.Duration, headers map[string]string, logic func(resp *http.Response, start time.Time) error) error
@@ -245,6 +248,10 @@ func (p *ProxyAdapter) Sub4Nico() string {
 		return ""
 	}
 	return string(buf)
+}
+
+func (p *ProxyAdapter) ToNico() map[string]any {
+	return p.cloneOpt()
 }
 
 func (p *ProxyAdapter) Sub4Clash() string {
