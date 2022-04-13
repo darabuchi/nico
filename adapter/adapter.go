@@ -82,15 +82,7 @@ func ParseV2ray(s string) (AdapterProxy, error) {
 }
 
 func ParseLinkSS(s string) (AdapterProxy, error) {
-	var urlStr string
-	base64Str, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(s, "ss://"))
-	if err != nil {
-		log.Debugf("err:%v", err)
-		// 如果不是base64，那就是明文
-		urlStr = s
-	} else {
-		urlStr = "ss://" + string(base64Str)
-	}
+	urlStr := "ss://" + Base64Decode(strings.TrimPrefix(s, "ss://"))
 
 	u, err := url.Parse(urlStr)
 	if err != nil {
@@ -103,15 +95,7 @@ func ParseLinkSS(s string) (AdapterProxy, error) {
 	var cipher, password string
 
 	// 对username解析
-	var userStr string
-	base64Str, err = base64.StdEncoding.DecodeString(u.User.String())
-	if err != nil {
-		log.Debugf("err:%v", err)
-		// 如果不是base64，那就是明文
-		userStr = u.User.String()
-	} else {
-		userStr = string(base64Str)
-	}
+	userStr := Base64Decode(u.User.String())
 
 	userSplit := strings.Split(userStr, ":")
 	if len(userSplit) > 0 {
