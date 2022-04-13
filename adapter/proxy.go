@@ -174,7 +174,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 					return
 				}
 
-				unionId = fmt.Sprintf("%s:%v", key, updateUnionId(val))
+				unionId += fmt.Sprintf(`%s:"%v",`, key, updateUnionId(val))
 			})
 
 			unionId = fmt.Sprintf("{%s}", unionId)
@@ -192,7 +192,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 					return
 				}
 
-				unionId = fmt.Sprintf("%s:%v", key, updateUnionId(val))
+				unionId += fmt.Sprintf(`%s:"%v"`, key, updateUnionId(val))
 			})
 
 			unionId = fmt.Sprintf("{%s}", unionId)
@@ -215,7 +215,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 		return unionId
 	}
 
-	p.uniqueId = utils.Sha384(updateUnionId(p.opt))
+	p.uniqueId = updateUnionId(p.opt)
 
 	if p.name == "" {
 		p.name = utils.ShortStr(p.uniqueId, 12)
@@ -404,9 +404,9 @@ func (p *ProxyAdapter) DoRequest(method, rawUrl string, body io.Reader, timeout 
 		},
 
 		Timeout: timeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
+		// CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		// 	return http.ErrUseLastResponse
+		// },
 	}
 
 	resp, err := client.Do(request)
