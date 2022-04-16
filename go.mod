@@ -7,7 +7,7 @@ require (
 	github.com/Luoxin/faker v0.0.0-20210916064730-fb0777f90022
 	github.com/darabuchi/enputi v0.0.8
 	github.com/darabuchi/log v0.0.0-20220323032131-710e5e1eab84
-	github.com/darabuchi/utils v0.0.0-20220304085619-06c94ec832ef
+	github.com/darabuchi/utils v0.0.0-20220411081706-78c5b7c77a11
 	github.com/elliotchance/pie v1.38.2
 	github.com/spf13/viper v1.8.1
 	github.com/valyala/fastjson v1.6.3
@@ -31,7 +31,6 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/insomniacslk/dhcp v0.0.0-20220119180841-3c283ff8b7dd // indirect
 	github.com/jchavannes/go-pgp v0.0.0-20200131171414-e5978e6d02b4 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -44,10 +43,8 @@ require (
 	github.com/mitchellh/mapstructure v1.4.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/oschwald/geoip2-golang v1.6.1 // indirect
-	github.com/oschwald/maxminddb-golang v1.8.0 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
-	github.com/petermattis/goid v0.0.0-20220302125637-5f11c28912df // indirect
+	github.com/petermattis/goid v0.0.0-20220331194723-8ee3e6ded87a // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
@@ -55,19 +52,16 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
-	github.com/u-root/uio v0.0.0-20210528151154-e40b768296a7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.30.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xtls/go v0.0.0-20210920065950-d4af136d3672 // indirect
-	go.etcd.io/bbolt v1.3.6 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064 // indirect
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220319134239-a9b59b0215f8 // indirect
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.6-0.20210726203631-07bc1bf47fb2 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
@@ -76,4 +70,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/Dreamacro/clash => github.com/darabuchi/clash v1.7.2-0.20220323024332-fb633b300e42
+replace github.com/Dreamacro/clash => ../clash
+
+replace github.com/darabuchi/utils => ../utils

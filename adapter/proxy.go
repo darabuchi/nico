@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -95,6 +96,10 @@ type AdapterProxy interface {
 
 	UniqueId() string
 
+	GenDialContext(u *url.URL) (constant.Conn, error)
+
+	GetClient() *http.Client
+
 	DoRequest(method, rawUrl string, body io.Reader, timeout time.Duration, headers map[string]string, logic func(resp *http.Response, start time.Time) error) error
 
 	Get(url string, timeout time.Duration, headers map[string]string) ([]byte, error)
@@ -122,6 +127,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 	p := &ProxyAdapter{
 		Proxy: adapter,
 		name:  adapter.Name(),
+		opt:   map[string]any{},
 	}
 
 	p.Cache = NewAdapterCache()
@@ -135,13 +141,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 		outbound.VmessOption,
 		outbound.ShadowSocksROption,
 		outbound.TrojanOption:
-		buf, err := json.Marshal(v)
-		if err != nil {
-			log.Errorf("err:%v", err)
-			return nil, err
-		}
-
-		err = json.Unmarshal(buf, &p.opt)
+		err := decode(p.opt, &v)
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return nil, err
@@ -150,6 +150,8 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 	default:
 		return nil, fmt.Errorf("unknown %s", reflect.TypeOf(opt))
 	}
+
+	p.opt["type"] = p.coverAdapterType(p.Type())
 
 	delete(p.opt, "Name")
 
@@ -208,6 +210,8 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 				vals = append(vals, updateUnionId(val))
 			}
 			unionId = fmt.Sprintf(`["%s"]`, vals.Join(`","`))
+		case constant.AdapterType:
+			unionId = fmt.Sprintf("%s", opt)
 		default:
 			log.Panicf("unknown type:%v,value:%v", reflect.TypeOf(value), value)
 		}
@@ -215,7 +219,10 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 		return unionId
 	}
 
-	p.uniqueId = updateUnionId(p.opt)
+	p.opt["name"] = ""
+
+	p.uniqueId = utils.Sha512(updateUnionId(p.opt))
+	// p.uniqueId = updateUnionId(p.opt)
 
 	if p.name == "" {
 		p.name = utils.ShortStr(p.uniqueId, 12)
@@ -265,7 +272,7 @@ func (p *ProxyAdapter) Sub4Clash() string {
 
 func (p *ProxyAdapter) Sub4V2ray() string {
 	u := &url.URL{
-		Scheme:      "",
+		Scheme:      p.coverAdapterType(p.Type()),
 		Opaque:      "",
 		User:        nil,
 		Host:        "",
@@ -291,34 +298,48 @@ func (p *ProxyAdapter) Sub4V2ray() string {
 
 	switch p.Type() {
 	case constant.Trojan:
-		u.Scheme = "trojan"
-		u.Fragment = fmt.Sprintf("%v", opt["Name"])
+		u.Fragment = p.Name()
+		u.Host = p.Addr()
 
-		u.Host = fmt.Sprintf("%v", opt["Server"])
-		if v, ok := opt["Port"]; ok {
-			u.Host = fmt.Sprintf("%s:%v", u.Host, v)
-		}
+		u.User = url.User(fmt.Sprintf("%v", opt["password"]))
 
-		u.User = url.User(fmt.Sprintf("%v", opt["Password"]))
+		setQuery("sni", opt["sni"])
 
-		setQuery("sni", opt["SNI"])
-
-		switch fmt.Sprintf("%v", opt["Network"]) {
+		switch fmt.Sprintf("%v", opt["network"]) {
 		case "ws":
 			setQuery("type", "ws")
-			if v, ok := opt["WSOpts"]; ok {
+			if v, ok := opt["wsopts"]; ok {
 				val := v.(map[string]any)
-				setQuery("wspath", val["Path"])
+				setQuery("wspath", val["path"])
 			}
 		default:
-			setQuery("type", opt["Network"])
+			setQuery("type", opt["network"])
 		}
 
 		setQuery("security", "tls")
 		setQuery("headerType", "none")
+	case constant.Shadowsocks:
+		u.Fragment = p.Name()
+		u.User = url.UserPassword(
+			fmt.Sprintf("%v", opt["cipher"]),
+			fmt.Sprintf("%v", opt["password"]))
+	case constant.Vmess:
+		m := map[string]any{
+			"ps":   opt["name"],
+			"add":  opt["server"],
+			"port": opt["port"],
+		}
 
+		buf, err := json.Marshal(m)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return ""
+		}
+
+		u.Path = base64.StdEncoding.EncodeToString(buf)
 	default:
-		log.Panicf("unknown type %s", p.Type())
+		log.Errorf("unknown type %s", p.Type())
+		return ""
 	}
 
 	u.RawQuery = query.Encode()
@@ -326,8 +347,89 @@ func (p *ProxyAdapter) Sub4V2ray() string {
 	return u.String()
 }
 
+func (p *ProxyAdapter) coverAdapterType(adapterType constant.AdapterType) string {
+	switch adapterType {
+	case constant.Direct:
+		return "direct"
+	case constant.Reject:
+		return "reject"
+
+	case constant.Shadowsocks:
+		return "ss"
+	case constant.ShadowsocksR:
+		return "ssr"
+	case constant.Snell:
+		return "snell"
+	case constant.Socks5:
+		return "socks_5"
+	case constant.Http:
+		return "http"
+	case constant.Vmess:
+		return "vmess"
+	case constant.Trojan:
+		return "trojan"
+	case constant.Vless:
+		return "vless"
+	default:
+		return "Unknown"
+	}
+}
+
 func (p *ProxyAdapter) UniqueId() string {
 	return p.uniqueId
+}
+
+func (p *ProxyAdapter) GenDialContext(u *url.URL) (constant.Conn, error) {
+	return p.DialContext(context.TODO(), &constant.Metadata{
+		AddrType: constant.AtypDomainName,
+		Host:     u.Hostname(),
+		DstPort: func() string {
+			if u.Port() != "" {
+				return u.Port()
+			}
+
+			switch u.Scheme {
+			case "http":
+				return "80"
+			case "https":
+				return "443"
+			}
+			return ""
+		}(),
+	})
+}
+
+func (p *ProxyAdapter) GetClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: nil,
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				host, port := splitHostPort(addr)
+
+				metadata := &constant.Metadata{
+					AddrType: constant.AtypDomainName,
+					DstPort:  port,
+					Host:     host,
+				}
+
+				return p.DialContext(ctx, metadata)
+			},
+			DialTLSContext:        nil,
+			TLSHandshakeTimeout:   time.Second * 3,
+			DisableKeepAlives:     true,
+			DisableCompression:    true,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   10,
+			MaxConnsPerHost:       10,
+			IdleConnTimeout:       time.Second * 3,
+			ResponseHeaderTimeout: time.Second * 3,
+			ExpectContinueTimeout: time.Minute,
+		},
+		// CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		// 	return http.ErrUseLastResponse
+		// },
+		Timeout: time.Second * 5,
+	}
 }
 
 func (p *ProxyAdapter) DoRequest(method, rawUrl string, body io.Reader, timeout time.Duration, headers map[string]string, logic func(resp *http.Response, start time.Time) error) error {
@@ -365,24 +467,9 @@ func (p *ProxyAdapter) DoRequest(method, rawUrl string, body io.Reader, timeout 
 
 	start := time.Now()
 
-	instance, err := p.DialContext(context.TODO(), &constant.Metadata{
-		AddrType: constant.AtypDomainName,
-		Host:     u.Hostname(),
-		DstPort: func() string {
-			if u.Port() != "" {
-				return u.Port()
-			}
-
-			switch u.Scheme {
-			case "http":
-				return "80"
-			case "https":
-				return "443"
-			}
-			return ""
-		}(),
-	})
+	instance, err := p.GenDialContext(u)
 	if err != nil {
+		log.Errorf("err:%v", err)
 		return err
 	}
 	defer instance.Close()
@@ -510,4 +597,240 @@ func (p *ProxyAdapter) Clone() AdapterProxy {
 
 func (p *ProxyAdapter) Name() string {
 	return p.name
+}
+
+func decodeSlice(dst []any, src any) error {
+	t := reflect.TypeOf(src)
+	if t.Kind() != reflect.Slice {
+		panic("src is not map")
+	}
+
+	v := reflect.ValueOf(src)
+
+	for i := 0; i < v.Len(); i++ {
+		lv := v.Index(i)
+
+		switch lv.Kind() {
+		case reflect.Bool:
+			dst = append(dst, lv.Bool())
+		case reflect.Int,
+			reflect.Int8,
+			reflect.Int16,
+			reflect.Int32,
+			reflect.Int64:
+			dst = append(dst, lv.Int())
+		case reflect.Uint,
+			reflect.Uint8,
+			reflect.Uint16,
+			reflect.Uint32,
+			reflect.Uint64:
+			dst = append(dst, lv.Uint())
+		case reflect.Float32, reflect.Float64:
+			dst = append(dst, lv.Float())
+		case reflect.Complex64, reflect.Complex128:
+			dst = append(dst, lv.Complex())
+		case reflect.Interface:
+			dst = append(dst, lv.Interface())
+		case reflect.Map:
+			m := map[string]any{}
+			dst = append(dst, m)
+			err := decodeMap(m, lv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		case reflect.Slice:
+			l := []any{}
+			dst = append(dst, l)
+			err := decodeSlice(l, lv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		case reflect.String:
+			dst = append(dst, lv.String())
+		case reflect.Struct, reflect.Ptr:
+			m := map[string]any{}
+			dst = append(dst, m)
+			err := decode(m, lv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		default:
+			log.Debugf("unknown kind %s", lv.Kind())
+		}
+	}
+
+	return nil
+}
+
+func decodeMap(dst map[string]any, src any) error {
+	t := reflect.TypeOf(src)
+	if t.Kind() != reflect.Map {
+		panic("src is not map")
+	}
+
+	v := reflect.ValueOf(src)
+
+	for _, mk := range v.MapKeys() {
+		mv := v.MapIndex(mk)
+		mk := fmt.Sprintf("%v", mk.Interface())
+
+		switch mv.Kind() {
+		case reflect.Bool:
+			dst[mk] = mv.Bool()
+		case reflect.Int,
+			reflect.Int8,
+			reflect.Int16,
+			reflect.Int32,
+			reflect.Int64:
+			dst[mk] = mv.Int()
+		case reflect.Uint,
+			reflect.Uint8,
+			reflect.Uint16,
+			reflect.Uint32,
+			reflect.Uint64:
+			dst[mk] = mv.Uint()
+		case reflect.Float32, reflect.Float64:
+			dst[mk] = mv.Float()
+		case reflect.Complex64, reflect.Complex128:
+			dst[mk] = mv.Complex()
+		case reflect.Interface:
+			dst[mk] = mv.Interface()
+		case reflect.Map:
+			m := map[string]any{}
+			dst[mk] = m
+			err := decodeMap(m, mv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		case reflect.Slice:
+			l := []any{}
+			dst[mk] = l
+			err := decodeSlice(l, mv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		case reflect.String:
+			dst[mk] = mv.String()
+		case reflect.Struct, reflect.Ptr:
+			m := map[string]any{}
+			dst[mk] = m
+			err := decode(m, mv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		default:
+			log.Debugf("unknown kind %s", mv.Kind())
+		}
+	}
+
+	return nil
+}
+
+func decode(dst map[string]any, src any) error {
+	if src == nil {
+		return nil
+	}
+
+	for reflect.TypeOf(src).Kind() == reflect.Ptr {
+		src = reflect.ValueOf(src).Elem().Interface()
+	}
+
+	t := reflect.TypeOf(src)
+	v := reflect.ValueOf(src)
+
+	for idx := 0; idx < t.NumField(); idx++ {
+		ft := t.Field(idx)
+		fv := v.Field(idx)
+
+		tag := strings.TrimSuffix(ft.Tag.Get("proxy"), ",omitempty")
+
+		switch fv.Kind() {
+		case reflect.Bool:
+			dst[tag] = fv.Bool()
+		case reflect.Int,
+			reflect.Int8,
+			reflect.Int16,
+			reflect.Int32,
+			reflect.Int64:
+			dst[tag] = fv.Int()
+		case reflect.Uint,
+			reflect.Uint8,
+			reflect.Uint16,
+			reflect.Uint32,
+			reflect.Uint64:
+			dst[tag] = fv.Uint()
+		case reflect.Float32, reflect.Float64:
+			dst[tag] = fv.Float()
+		case reflect.Complex64, reflect.Complex128:
+			dst[tag] = fv.Complex()
+		case reflect.Interface:
+			dst[tag] = fv.Interface()
+		case reflect.Map:
+			m := map[string]any{}
+			dst[tag] = m
+			err := decodeMap(m, fv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		case reflect.Slice:
+			l := []any{}
+			dst[tag] = l
+			err := decodeSlice(l, fv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		case reflect.String:
+			dst[tag] = fv.String()
+		case reflect.Struct, reflect.Ptr:
+			m := map[string]any{}
+			dst[tag] = m
+			err := decode(m, fv.Interface())
+			if err != nil {
+				log.Debugf("err:%v", err)
+				return err
+			}
+		default:
+			log.Debugf("unknown kind %s", fv.Kind())
+		}
+	}
+
+	return nil
+}
+
+func splitHostPort(hostPort string) (host, port string) {
+	host = hostPort
+
+	colon := strings.LastIndexByte(host, ':')
+	if colon != -1 && validOptionalPort(host[colon:]) {
+		host, port = host[:colon], host[colon+1:]
+	}
+
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		host = host[1 : len(host)-1]
+	}
+
+	return
+}
+
+func validOptionalPort(port string) bool {
+	if port == "" {
+		return true
+	}
+	if port[0] != ':' {
+		return false
+	}
+	for _, b := range port[1:] {
+		if b < '0' || b > '9' {
+			return false
+		}
+	}
+	return true
 }

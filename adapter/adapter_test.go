@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "ss://YWVzLTI1Ni1jZmI6a1NQbXZ3ZEZ6R01NVzVwWQ@5.183.179.148:9007#%E5%BE%B7%E5%9B%BD_Tg%40bpjzx2_107",
+			args: "ssr://c2hvbmxpbmVzYW5kY3UwMi5wcm9jb25jbi54eXo6NTYxOmF1dGhfYWVzMTI4X21kNTpjaGFjaGEyMC1pZXRmOnBsYWluOmJXSnNZVzVyTVhCdmNuUS8_cmVtYXJrcz01TGl0NVp1OVgtbW1tZWE0cjE4MSZwcm90b3BhcmFtPU5UVTFNamM2ZEhsemIyNHVZMjl2YkRrME1BJm9iZnNwYXJhbT0mZ3JvdXA9Ym05a1pYTkRZWFJqYUE",
 		},
 	}
 	for _, tt := range tests {
@@ -97,6 +97,9 @@ func TestParseV2ray(t *testing.T) {
 				t.Errorf("err:%v", err)
 				return
 			}
+
+			t.Logf("%s", p.Sub4V2ray())
+			t.Logf("%s", p.Sub4Clash())
 
 			delay, err := p.URLTest(context.TODO(), "https://www.google.com")
 			if err != nil {
