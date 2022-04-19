@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "ssr://c2hvbmxpbmVzYW5kY3UwMi5wcm9jb25jbi54eXo6NTYxOmF1dGhfYWVzMTI4X21kNTpjaGFjaGEyMC1pZXRmOnBsYWluOmJXSnNZVzVyTVhCdmNuUS8_cmVtYXJrcz01TGl0NVp1OVgtbW1tZWE0cjE4MSZwcm90b3BhcmFtPU5UVTFNamM2ZEhsemIyNHVZMjl2YkRrME1BJm9iZnNwYXJhbT0mZ3JvdXA9Ym05a1pYTkRZWFJqYUE",
+			args: "vmess://ew0KICAidiI6ICIyIiwNCiAgInBzIjogIvCfh6/wn4e1SmFwYW7lhaznm4oweC0y5Y+3IiwNCiAgImFkZCI6ICIyMC4yMjIuMTU4LjU3IiwNCiAgInBvcnQiOiAiNDY2NjEiLA0KICAiaWQiOiAiNzQ3NTY0NWUtNmQxOC00MWZhLTg0NWMtNTk1YzIzZDJhODUwIiwNCiAgImFpZCI6ICIwIiwNCiAgInNjeSI6ICJhdXRvIiwNCiAgIm5ldCI6ICJ3cyIsDQogICJ0eXBlIjogIm5vbmUiLA0KICAiaG9zdCI6ICIiLA0KICAicGF0aCI6ICIvemgtY24iLA0KICAidGxzIjogIiIsDQogICJzbmkiOiAiIiwNCiAgImFscG4iOiAiIg0KfQ==",
 		},
 	}
 	for _, tt := range tests {

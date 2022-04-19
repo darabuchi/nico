@@ -95,6 +95,7 @@ type AdapterProxy interface {
 	ToNico() map[string]any
 
 	UniqueId() string
+	UniqueIdShort() string
 
 	GenDialContext(u *url.URL) (constant.Conn, error)
 
@@ -202,7 +203,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 			uint32, uint64, uint, uint8,
 			float64, float32,
 			int32, int64, int, int8,
-			bool:
+			bool, json.Number:
 			unionId = fmt.Sprintf("%v", opt)
 		case []any:
 			var vals pie.Strings
@@ -377,6 +378,10 @@ func (p *ProxyAdapter) coverAdapterType(adapterType constant.AdapterType) string
 
 func (p *ProxyAdapter) UniqueId() string {
 	return p.uniqueId
+}
+
+func (p *ProxyAdapter) UniqueIdShort() string {
+	return utils.ShortStr(p.uniqueId, 12)
 }
 
 func (p *ProxyAdapter) GenDialContext(u *url.URL) (constant.Conn, error) {

@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -351,13 +350,8 @@ func ParseLinkVless(s string) (AdapterProxy, error) {
 }
 
 func ParseLinkVmess(s string) (AdapterProxy, error) {
-	base64Str, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(s, "vmess://"))
-	if err != nil {
-		log.Errorf("err:%v", err)
-		return nil, err
-	}
-
-	m, err := utils.NewMapWithJson(base64Str)
+	base64Str := Base64Decode(strings.TrimPrefix(s, "vmess://"))
+	m, err := utils.NewMapWithJson([]byte(base64Str))
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
@@ -380,7 +374,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 		BasicOption: outbound.BasicOption{},
 		Name:        m.GetString("ps"),
 		Server: func() string {
-			if m.Exists("add") {
+			if m.GetString("add") != "" {
 				return m.GetString("add")
 			}
 
@@ -390,7 +384,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 		UUID:    m.GetString("id"),
 		AlterID: m.GetInt("aid"),
 		Cipher: func() string {
-			if m.Exists("scy") {
+			if m.GetString("scy") != "" {
 				return m.GetString("scy")
 			}
 

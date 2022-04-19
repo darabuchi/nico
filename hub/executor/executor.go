@@ -28,11 +28,18 @@ const (
 	SpeedStr = "speed_str"
 )
 
+type ExecutorCallback struct {
+	OnNodeAdd    func(node adapter.AdapterProxy)
+	OnNodeDel    func(node adapter.AdapterProxy)
+	OnDelayCheck func(node adapter.AdapterProxy, delay time.Duration)
+}
+
 type Executor struct {
+	callback             *ExecutorCallback
 	lock                 sync.RWMutex
 	allProxy, aliveProxy adapter.ProxyList
 
-	checkProxyC chan adapter.AdapterProxy
+	event chan executorEvent
 
 	connChan chan constant.ConnContext
 	service  *mixed.Listener
@@ -40,17 +47,63 @@ type Executor struct {
 	rule *rule.AdapterRule
 }
 
+type eventType int
+
+const (
+	eventCheckDelay eventType = iota
+	eventCleanDead
+)
+
+type executorEvent struct {
+	eventType eventType
+
+	node adapter.AdapterProxy
+}
+
 func NewExecutor() *Executor {
 	p := &Executor{
-		connChan:    make(chan constant.ConnContext),
-		checkProxyC: make(chan adapter.AdapterProxy, 10),
-		rule:        rule.GetAdapterRule(),
+		callback: &ExecutorCallback{},
+		connChan: make(chan constant.ConnContext),
+		event:    make(chan executorEvent, 5),
+		rule:     rule.GetAdapterRule(),
 	}
 
 	p.handleConn()
 	p.handleNode()
 
 	return p
+}
+
+// 事件处理
+
+func (p *Executor) OnNodeAdd(logic func(node adapter.AdapterProxy)) {
+	p.callback.OnNodeAdd = logic
+}
+
+func (p *Executor) onNodeAdd(node adapter.AdapterProxy) {
+	if p.callback.OnNodeAdd != nil {
+		p.callback.OnNodeAdd(node)
+	}
+}
+
+func (p *Executor) OnNodeDel(logic func(node adapter.AdapterProxy)) {
+	p.callback.OnNodeDel = logic
+}
+
+func (p *Executor) onNodeDel(node adapter.AdapterProxy) {
+	if p.callback.OnNodeDel != nil {
+		p.callback.OnNodeDel(node)
+	}
+}
+
+func (p *Executor) OnDelayCheck(logic func(node adapter.AdapterProxy, delay time.Duration)) {
+	p.callback.OnDelayCheck = logic
+}
+
+func (p *Executor) onDelayCheck(node adapter.AdapterProxy, delay time.Duration) {
+	if p.callback.OnDelayCheck != nil {
+		p.callback.OnDelayCheck(node, delay)
+	}
 }
 
 func (p *Executor) SetAdapterRule(ar *rule.AdapterRule) {
@@ -60,10 +113,10 @@ func (p *Executor) SetAdapterRule(ar *rule.AdapterRule) {
 // 节点处理
 func (p *Executor) handleNode() {
 	go func(sign chan os.Signal) {
-		delayCheck := time.NewTicker(time.Minute)
+		delayCheck := time.NewTicker(time.Minute * 5)
 		defer delayCheck.Stop()
 
-		speedCheck := time.NewTicker(time.Minute * 30)
+		speedCheck := time.NewTicker(time.Hour)
 		defer speedCheck.Stop()
 
 		for {
@@ -84,12 +137,18 @@ func (p *Executor) handleNode() {
 
 				p.proxySort()
 
-			case n := <-p.checkProxyC:
-				log.Infof("load new node %s[%s]", n.Name(), n.UniqueId())
+			case e := <-p.event:
+				switch e.eventType {
+				case eventCheckDelay:
+					n := e.node
+					log.Infof("load new node %s[%s]", n.Name(), n.UniqueId())
 
-				p.checkDelay(n)
+					p.checkDelay(n)
 
-				p.proxySort()
+					p.proxySort()
+				case eventCleanDead:
+					p.cleanDeadNode()
+				}
 
 			case <-sign:
 				return
@@ -103,12 +162,13 @@ func (p *Executor) checkDelay(proxy adapter.AdapterProxy) {
 	delay, err := proxy.URLTest(context.TODO(), "https://www.google.com")
 	if err != nil {
 		proxy.Store(Alive, false)
-		proxy.Store(Delay, -1)
 		log.Debugf("err:%v", err)
+		p.onDelayCheck(proxy, -1)
 	} else {
 		proxy.Store(Alive, true)
 		proxy.Store(Delay, delay)
 		log.Infof("%s delay:%dms", proxy.Name(), delay)
+		p.onDelayCheck(proxy, time.Duration(delay)*time.Millisecond)
 	}
 }
 
@@ -244,8 +304,36 @@ func (p *Executor) addNode(n adapter.AdapterProxy) {
 
 	p.lock.Unlock()
 
+	p.onNodeAdd(n)
+
 	if !existed {
-		p.checkProxyC <- n
+		p.event <- executorEvent{
+			eventType: eventCheckDelay,
+			node:      n,
+		}
+	}
+}
+
+func (p *Executor) cleanDeadNode() {
+	var closeList adapter.ProxyList
+	p.lock.Lock()
+	p.allProxy = p.allProxy.Filter(func(proxy adapter.AdapterProxy) bool {
+		alive := proxy.LoadBool(Alive)
+		if !alive {
+			closeList = append(closeList, proxy)
+		}
+		return alive
+	})
+	p.lock.Unlock()
+
+	closeList.Each(func(proxy adapter.AdapterProxy) {
+		p.onNodeDel(proxy)
+	})
+}
+
+func (p *Executor) CleanDeadNodes() {
+	p.event <- executorEvent{
+		eventType: eventCleanDead,
 	}
 }
 
