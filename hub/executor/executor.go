@@ -81,6 +81,7 @@ func (p *Executor) OnNodeAdd(logic func(node adapter.AdapterProxy)) {
 }
 
 func (p *Executor) onNodeAdd(node adapter.AdapterProxy) {
+	defer utils.CachePanic()
 	if p.callback.OnNodeAdd != nil {
 		p.callback.OnNodeAdd(node)
 	}
@@ -91,6 +92,7 @@ func (p *Executor) OnNodeDel(logic func(node adapter.AdapterProxy)) {
 }
 
 func (p *Executor) onNodeDel(node adapter.AdapterProxy) {
+	defer utils.CachePanic()
 	if p.callback.OnNodeDel != nil {
 		p.callback.OnNodeDel(node)
 	}
@@ -101,6 +103,7 @@ func (p *Executor) OnDelayCheck(logic func(node adapter.AdapterProxy, delay time
 }
 
 func (p *Executor) onDelayCheck(node adapter.AdapterProxy, delay time.Duration) {
+	defer utils.CachePanic()
 	if p.callback.OnDelayCheck != nil {
 		p.callback.OnDelayCheck(node, delay)
 	}
@@ -128,7 +131,7 @@ func (p *Executor) handleNode() {
 				proxies.Each(p.checkDelay)
 
 				p.proxySort()
-
+				delayCheck.Reset(time.Minute * 5)
 			case <-speedCheck.C:
 				proxies := p.cloneProxyList()
 				log.Infof("check spped for %d proxies", len(proxies))
@@ -136,7 +139,7 @@ func (p *Executor) handleNode() {
 				proxies.Each(p.checkSpeed)
 
 				p.proxySort()
-
+				speedCheck.Reset(time.Minute * 5)
 			case e := <-p.event:
 				switch e.eventType {
 				case eventCheckDelay:
@@ -342,7 +345,11 @@ func (p *Executor) ChooseProxy() adapter.AdapterProxy {
 	defer p.lock.RUnlock()
 
 	if len(p.aliveProxy) > 0 {
-		return p.aliveProxy[0]
+		for _, proxy := range p.aliveProxy {
+			if proxy.LoadBool(Alive) {
+				return proxy
+			}
+		}
 	}
 
 	return nil

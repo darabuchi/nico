@@ -88,6 +88,9 @@ type AdapterProxy interface {
 	constant.Proxy
 	Cache
 
+	HostName() string
+	Port() string
+
 	Sub4Nico() string
 	Sub4Clash() string
 	Sub4V2ray() string
@@ -122,6 +125,8 @@ type ProxyAdapter struct {
 	uniqueId string
 
 	name string
+	port string
+	host string
 }
 
 func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
@@ -233,6 +238,8 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 
 	p.name = strings.TrimSuffix(p.name, "\n")
 	p.name = strings.TrimSuffix(p.name, "\r")
+
+	p.host, p.port = splitHostPort(p.Addr())
 
 	return p, nil
 }
@@ -419,10 +426,9 @@ func (p *ProxyAdapter) GetClient() *http.Client {
 
 				return p.DialContext(ctx, metadata)
 			},
-			DialTLSContext:        nil,
 			TLSHandshakeTimeout:   time.Second * 3,
-			DisableKeepAlives:     true,
-			DisableCompression:    true,
+			DisableKeepAlives:     false,
+			DisableCompression:    false,
 			MaxIdleConns:          100,
 			MaxIdleConnsPerHost:   10,
 			MaxConnsPerHost:       10,
@@ -590,11 +596,14 @@ func (p *ProxyAdapter) PostJson(url string, reqBody, rspBody any, timeout time.D
 
 func (p *ProxyAdapter) Clone() AdapterProxy {
 	np := &ProxyAdapter{
-		Proxy:    p.Proxy,
-		Cache:    NewAdapterCache(),
-		opt:      p.opt,
-		uniqueId: p.uniqueId,
-		name:     p.name,
+		Proxy:     p.Proxy,
+		Cache:     NewAdapterCache(),
+		ExtraInfo: p.ExtraInfo,
+		opt:       p.opt,
+		uniqueId:  p.uniqueId,
+		name:      p.name,
+		port:      p.port,
+		host:      p.host,
 	}
 
 	return np
@@ -602,6 +611,14 @@ func (p *ProxyAdapter) Clone() AdapterProxy {
 
 func (p *ProxyAdapter) Name() string {
 	return p.name
+}
+
+func (p *ProxyAdapter) HostName() string {
+	return p.host
+}
+
+func (p *ProxyAdapter) Port() string {
+	return p.port
 }
 
 func decodeSlice(dst []any, src any) error {

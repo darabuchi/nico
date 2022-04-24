@@ -168,7 +168,19 @@ func ParseLinkSSR(s string) (AdapterProxy, error) {
 }
 
 func ParseLinkSS(s string) (AdapterProxy, error) {
-	urlStr := "ss://" + Base64Decode(strings.TrimPrefix(s, "ss://"))
+	var urlStr string
+	var fragment string
+	bu, err := url.Parse(s)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		urlStr = "ss://" + Base64Decode(strings.TrimPrefix(s, "ss://"))
+	} else {
+		fragment = bu.Fragment
+		bu.Fragment = ""
+		urlStr = "ss://" + Base64Decode(strings.TrimPrefix(bu.String(), "ss://"))
+	}
+
+	log.Debugf("urlStr:%s", urlStr)
 
 	u, err := url.Parse(urlStr)
 	if err != nil {
@@ -176,12 +188,17 @@ func ParseLinkSS(s string) (AdapterProxy, error) {
 		return nil, err
 	}
 
+	if fragment == "" {
+		fragment = u.Fragment
+	}
+
 	port, _ := strconv.Atoi(u.Port())
 
 	var cipher, password string
-
 	// 对username解析
 	userStr := Base64Decode(u.User.String())
+
+	log.Debugf("userStr:%s", userStr)
 
 	userSplit := strings.Split(userStr, ":")
 	if len(userSplit) > 0 {
@@ -194,7 +211,7 @@ func ParseLinkSS(s string) (AdapterProxy, error) {
 
 	opt := outbound.ShadowSocksOption{
 		BasicOption: outbound.BasicOption{},
-		Name:        u.Fragment,
+		Name:        fragment,
 		Server:      u.Hostname(),
 		Port:        port,
 		Password:    password,
