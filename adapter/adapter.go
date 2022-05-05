@@ -367,69 +367,136 @@ func ParseLinkVless(s string) (AdapterProxy, error) {
 }
 
 func ParseLinkVmess(s string) (AdapterProxy, error) {
+	var opt outbound.VmessOption
 	base64Str := Base64Decode(strings.TrimPrefix(s, "vmess://"))
 	m, err := utils.NewMapWithJson([]byte(base64Str))
 	if err != nil {
 		log.Errorf("err:%v", err)
-		return nil, err
-	}
 
-	var wsOpts outbound.WSOptions
-	switch m.GetString("net") {
-	case "ws":
-		wsOpts = outbound.WSOptions{
-			Path: m.GetString("path"),
-			Headers: map[string]string{
-				"Host": m.GetString("host"),
-			},
-			MaxEarlyData:        0,
-			EarlyDataHeaderName: "",
+		u, err := url.Parse(s)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return nil, err
+		} else {
+			u.Host = Base64Decode(u.Host)
 		}
-	}
 
-	opt := outbound.VmessOption{
-		BasicOption: outbound.BasicOption{},
-		Name:        m.GetString("ps"),
-		Server: func() string {
-			if m.GetString("add") != "" {
-				return m.GetString("add")
-			}
+		urlStr, err := url.QueryUnescape(u.String())
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return nil, err
+		}
 
-			return m.GetString("host")
-		}(),
-		Port:    m.GetInt("port"),
-		UUID:    m.GetString("id"),
-		AlterID: m.GetInt("aid"),
-		Cipher: func() string {
-			if m.GetString("scy") != "" {
-				return m.GetString("scy")
-			}
+		u, err = url.Parse(urlStr)
+		if err != nil {
+			log.Errorf("err:%v", err)
+			return nil, err
+		}
 
-			return "auto"
-		}(),
-		UDP:     true,
-		Network: m.GetString("net"),
-		TLS: func() bool {
-			val, err := m.Get("tls")
-			if err != nil {
-				return false
+		var wsOpts outbound.WSOptions
+		var network string
+		switch u.Query().Get("obfs") {
+		case "websocket":
+			network = "ws"
+			wsOpts = outbound.WSOptions{
+				Path: u.Query().Get("path"),
+				Headers: map[string]string{
+					"Host": u.Query().Get("peer"),
+				},
+				MaxEarlyData:        0,
+				EarlyDataHeaderName: "",
 			}
+		}
 
-			switch utils.CheckValueType(val) {
-			case utils.ValueString:
-				return m.GetString("tls") != ""
-			case utils.ValueBool:
-				return m.GetBool("tls")
-			default:
-				return false
+		opt = outbound.VmessOption{
+			BasicOption: outbound.BasicOption{},
+			Name:        u.Query().Get("remarks"),
+			Server:      u.Hostname(),
+			Port:        utils.ToInt(u.Port()),
+			UUID: func() string {
+				pwd, ok := u.User.Password()
+				if ok {
+					return pwd
+				}
+				return u.User.Username()
+			}(),
+			AlterID: 0,
+			Cipher: func() string {
+				_, ok := u.User.Password()
+				if ok {
+					return u.User.Username()
+				}
+				return ""
+			}(),
+			UDP:            true,
+			Network:        network,
+			TLS:            utils.ToBool(u.Query().Get("tls")),
+			SkipCertVerify: true,
+			ServerName:     "",
+			HTTPOpts:       outbound.HTTPOptions{},
+			HTTP2Opts:      outbound.HTTP2Options{},
+			GrpcOpts:       outbound.GrpcOptions{},
+			WSOpts:         wsOpts,
+		}
+
+	} else {
+		var wsOpts outbound.WSOptions
+		switch m.GetString("net") {
+		case "ws":
+			wsOpts = outbound.WSOptions{
+				Path: m.GetString("path"),
+				Headers: map[string]string{
+					"Host": m.GetString("host"),
+				},
+				MaxEarlyData:        0,
+				EarlyDataHeaderName: "",
 			}
-		}(),
-		SkipCertVerify: true,
-		ServerName:     "",
-		HTTPOpts:       outbound.HTTPOptions{},
-		HTTP2Opts:      outbound.HTTP2Options{},
-		GrpcOpts:       outbound.GrpcOptions{},
-		WSOpts:         wsOpts,
+		}
+
+		opt = outbound.VmessOption{
+			BasicOption: outbound.BasicOption{},
+			Name:        m.GetString("ps"),
+			Server: func() string {
+				if m.GetString("add") != "" {
+					return m.GetString("add")
+				}
+
+				return m.GetString("host")
+			}(),
+			Port:    m.GetInt("port"),
+			UUID:    m.GetString("id"),
+			AlterID: m.GetInt("aid"),
+			Cipher: func() string {
+				if m.GetString("scy") != "" {
+					return m.GetString("scy")
+				}
+
+				return "auto"
+			}(),
+			UDP:     true,
+			Network: m.GetString("net"),
+			TLS: func() bool {
+				val, err := m.Get("tls")
+				if err != nil {
+					return false
+				}
+
+				switch utils.CheckValueType(val) {
+				case utils.ValueString:
+					return m.GetString("tls") != ""
+				case utils.ValueBool:
+					return m.GetBool("tls")
+				default:
+					return false
+				}
+			}(),
+			SkipCertVerify: true,
+			ServerName:     "",
+			HTTPOpts:       outbound.HTTPOptions{},
+			HTTP2Opts:      outbound.HTTP2Options{},
+			GrpcOpts:       outbound.GrpcOptions{},
+			WSOpts:         wsOpts,
+		}
 	}
 
 	log.Debugf("vmess opt:%+v", opt)

@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "ssr://NDUuNzcuNDguNDQ6ODA5OTpvcmlnaW46YWVzLTI1Ni1jZmI6cGxhaW46WlVsWE1FUnVhelk1TkRVMFpUWnVVM2QxYzNCMk9VUnRVekl3TVhSUk1FUT0vP2dyb3VwPWNISnZlSGx3YjI5c2MzTXVhR1Z5YjJ0MVlYQndMbU52YlElM0QlM0Qmb2Jmc3BhcmFtPVYxZFhMbGxQVlU1RlJVUXVWMGxPJnByb3RvcGFyYW09VjFkWExsbFBWVTVGUlVRdVYwbE8=",
+			args: "vmess://Y2hhY2hhMjAtcG9seTEzMDU6MTdmY2NjZjctMzRhZC0zYzRiLWI0N2MtNWEzOGU4OTk4M2M4QGJhaXlpbmdjdS5iYWljbS54eXo6NzQ2?remarks=%E9%A9%AC%E6%9D%A5%E8%A5%BF%E4%BA%9A%20%7C%20%E7%99%BD%E9%8A%80%20%7C%200.05X%20%7C%20%E5%8E%9F%E7%94%9F%E5%8A%A8%E6%80%81IP%20%7C%20D%20%7C&obfsParam=ssl.baiyu.click&path=/v2ray&obfs=websocket&tls=1&peer=ssl.baiyu.click",
 		},
 	}
 	for _, tt := range tests {
