@@ -1,9 +1,10 @@
 package adapter_test
 
 import (
-	"context"
 	"testing"
+	"time"
 
+	"github.com/darabuchi/log"
 	"github.com/darabuchi/nico/adapter"
 )
 
@@ -16,11 +17,7 @@ func TestNewProxyAdapter(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "ss://YWVzLTI1Ni1nY206UENubkg2U1FTbmZvUzI3@134.195.196.51:8090#%E5%8A%A0%E6%8B%BF%E5%A4%A7_Tg%E9%A2%91%E9%81%93%3Ahttps%3A%2F%2Ft.me%2Fbpjzx2_3",
-		},
-		{
-			name: "",
-			args: "trojan://8422215be9bb456c8bf81e9566e6da76@1cc50d1541c.cc5d5.cf:443?security=tls&type=tcp&headerType=none#%e5%9c%88%e9%87%8f",
+			args: "vmess://ew0KICAidiI6ICIyIiwNCiAgInBzIjogIuaXpeacrDE3Leino+mUgea1geWqkuS9k+OAkOWbuuWumklQ44CRIiwNCiAgImFkZCI6ICJqcC0xNy54cmF5dmlwLmNmIiwNCiAgInBvcnQiOiAiMzE5NDUiLA0KICAiaWQiOiAiZmZiNmI0NTUtNGFjMC00MzM4LWJmZTUtM2U2YjVkNzBhNzdkIiwNCiAgImFpZCI6ICIwIiwNCiAgInNjeSI6ICJhdXRvIiwNCiAgIm5ldCI6ICJ0Y3AiLA0KICAidHlwZSI6ICJub25lIiwNCiAgImhvc3QiOiAiIiwNCiAgInBhdGgiOiAiIiwNCiAgInRscyI6ICIiLA0KICAic25pIjogIiINCn0=",
 		},
 	}
 	for _, tt := range tests {
@@ -31,17 +28,14 @@ func TestNewProxyAdapter(t *testing.T) {
 				return
 			}
 
-			t.Logf("clash:%s", p.Sub4Clash())
-
-			t.Logf("v2ray:%s", p.Sub4V2ray())
-
-			delay, err := p.URLTest(context.TODO(), "https://www.google.com")
+			_, err = p.Get("https://www.google.com", time.Second*5, map[string]string{})
 			if err != nil {
 				t.Errorf("err:%v", err)
 				return
 			}
 
-			t.Logf("%s delay is %d", p.Name(), delay)
+			log.Info(p.GetTotalDownload())
+			log.Info(p.GetTotalUpload())
 		})
 	}
 }

@@ -8,7 +8,7 @@ require (
 	github.com/darabuchi/enputi v0.0.8
 	github.com/darabuchi/log v0.0.0-20220323032131-710e5e1eab84
 	github.com/darabuchi/utils v0.0.0-20220411081706-78c5b7c77a11
-	github.com/elliotchance/pie v1.38.2
+	github.com/elliotchance/pie v1.39.0
 	github.com/spf13/viper v1.8.1
 	github.com/valyala/fastjson v1.6.3
 	go.uber.org/atomic v1.9.0

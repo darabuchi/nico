@@ -22,6 +22,7 @@ import (
 	"github.com/darabuchi/log"
 	"github.com/darabuchi/utils"
 	"github.com/elliotchance/pie/pie"
+	"go.uber.org/atomic"
 	"gopkg.in/yaml.v3"
 )
 
@@ -108,8 +109,8 @@ type AdapterProxy interface {
 
 	Get(url string, timeout time.Duration, headers map[string]string) ([]byte, error)
 
-	Post(url string, body []byte, timeout time.Duration, headers map[string]string) ([]byte, error)
-	PostJson(url string, reqBody, rspBody any, timeout time.Duration, headers map[string]string) error
+	GetTotalUpload() uint64
+	GetTotalDownload() uint64
 }
 
 //go:generate pie ProxyList.*
@@ -127,13 +128,17 @@ type ProxyAdapter struct {
 	name string
 	port string
 	host string
+
+	upload, download *atomic.Uint64
 }
 
 func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 	p := &ProxyAdapter{
-		Proxy: adapter,
-		name:  adapter.Name(),
-		opt:   map[string]any{},
+		Proxy:    adapter,
+		name:     adapter.Name(),
+		opt:      map[string]any{},
+		upload:   atomic.NewUint64(0),
+		download: atomic.NewUint64(0),
 	}
 
 	p.Cache = NewAdapterCache()
@@ -424,7 +429,13 @@ func (p *ProxyAdapter) GetClient() *http.Client {
 					Host:     host,
 				}
 
-				return p.DialContext(ctx, metadata)
+				conn, err := p.DialContext(ctx, metadata)
+				if err != nil {
+					log.Errorf("err:%v", err)
+					return nil, err
+				}
+
+				return newTicker(conn, metadata, p), nil
 			},
 			TLSHandshakeTimeout:   time.Second * 3,
 			DisableKeepAlives:     false,
@@ -619,6 +630,13 @@ func (p *ProxyAdapter) HostName() string {
 
 func (p *ProxyAdapter) Port() string {
 	return p.port
+}
+
+func (p *ProxyAdapter) GetTotalUpload() uint64 {
+	return p.upload.Load()
+}
+func (p *ProxyAdapter) GetTotalDownload() uint64 {
+	return p.download.Load()
 }
 
 func decodeSlice(dst []any, src any) error {
