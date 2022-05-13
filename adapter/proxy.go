@@ -129,16 +129,15 @@ type ProxyAdapter struct {
 	port string
 	host string
 
-	upload, download *atomic.Uint64
+	tracker *TotalTracker
 }
 
 func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 	p := &ProxyAdapter{
-		Proxy:    adapter,
-		name:     adapter.Name(),
-		opt:      map[string]any{},
-		upload:   atomic.NewUint64(0),
-		download: atomic.NewUint64(0),
+		Proxy:   adapter,
+		name:    adapter.Name(),
+		opt:     map[string]any{},
+		tracker: NewTotalTracker(),
 	}
 
 	p.Cache = NewAdapterCache()
@@ -232,7 +231,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 
 	p.opt["name"] = ""
 
-	p.uniqueId = utils.Sha512(updateUnionId(p.opt))
+	p.uniqueId = utils.Sha256(updateUnionId(p.opt))
 	// p.uniqueId = updateUnionId(p.opt)
 
 	if p.name == "" {
@@ -419,7 +418,6 @@ func (p *ProxyAdapter) GenDialContext(u *url.URL) (constant.Conn, error) {
 func (p *ProxyAdapter) GetClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
-			Proxy: nil,
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				host, port := splitHostPort(addr)
 
@@ -435,7 +433,7 @@ func (p *ProxyAdapter) GetClient() *http.Client {
 					return nil, err
 				}
 
-				return newTicker(conn, metadata, p), nil
+				return newTicker(conn, metadata, p.tracker), nil
 			},
 			TLSHandshakeTimeout:   time.Second * 3,
 			DisableKeepAlives:     false,
@@ -499,7 +497,7 @@ func (p *ProxyAdapter) DoRequest(method, rawUrl string, body io.Reader, timeout 
 	client := http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return instance, nil
+				return newTicker(instance, nil, p.tracker), nil
 			},
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -633,10 +631,15 @@ func (p *ProxyAdapter) Port() string {
 }
 
 func (p *ProxyAdapter) GetTotalUpload() uint64 {
-	return p.upload.Load()
+	return p.tracker.Upload()
 }
 func (p *ProxyAdapter) GetTotalDownload() uint64 {
-	return p.download.Load()
+	return p.tracker.Download()
+}
+
+func (p *ProxyAdapter) RegisterTotalTracker(tracker Tracker) *ProxyAdapter {
+	p.tracker.RegisterTotalTracker(tracker)
+	return p
 }
 
 func decodeSlice(dst []any, src any) error {
@@ -873,4 +876,42 @@ func validOptionalPort(port string) bool {
 		}
 	}
 	return true
+}
+
+type TotalTracker struct {
+	upload, download *atomic.Uint64
+	tracker          Tracker
+}
+
+func (p *TotalTracker) IncrDownload(size uint64) {
+	p.download.Add(size)
+	if p.tracker != nil {
+		p.tracker.IncrDownload(size)
+	}
+}
+
+func (p *TotalTracker) IncrUpload(size uint64) {
+	p.upload.Add(size)
+	if p.tracker != nil {
+		p.tracker.IncrUpload(size)
+	}
+}
+
+func (p *TotalTracker) Download() uint64 {
+	return p.download.Load()
+}
+
+func (p *TotalTracker) Upload() uint64 {
+	return p.upload.Load()
+}
+
+func (p *TotalTracker) RegisterTotalTracker(tracker Tracker) {
+	p.tracker = tracker
+}
+
+func NewTotalTracker() *TotalTracker {
+	return &TotalTracker{
+		upload:   atomic.NewUint64(0),
+		download: atomic.NewUint64(0),
+	}
 }
