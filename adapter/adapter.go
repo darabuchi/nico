@@ -86,6 +86,7 @@ func ParseLinkSSR(s string) (AdapterProxy, error) {
 	urlStr := Base64Decode(strings.TrimPrefix(s, "ssr://"))
 	params := strings.Split(urlStr, `:`)
 	if len(params) != 6 {
+		//
 		return nil, errors.New("invalid ssr url")
 	}
 

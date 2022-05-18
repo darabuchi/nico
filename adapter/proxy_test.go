@@ -17,7 +17,7 @@ func TestNewProxyAdapter(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "vmess://ew0KICAidiI6ICIyIiwNCiAgInBzIjogIuaXpeacrDE3Leino+mUgea1geWqkuS9k+OAkOWbuuWumklQ44CRIiwNCiAgImFkZCI6ICJqcC0xNy54cmF5dmlwLmNmIiwNCiAgInBvcnQiOiAiMzE5NDUiLA0KICAiaWQiOiAiZmZiNmI0NTUtNGFjMC00MzM4LWJmZTUtM2U2YjVkNzBhNzdkIiwNCiAgImFpZCI6ICIwIiwNCiAgInNjeSI6ICJhdXRvIiwNCiAgIm5ldCI6ICJ0Y3AiLA0KICAidHlwZSI6ICJub25lIiwNCiAgImhvc3QiOiAiIiwNCiAgInBhdGgiOiAiIiwNCiAgInRscyI6ICIiLA0KICAic25pIjogIiINCn0=",
+			args: "ssr://MjEzLjE4My41My4xNzc6OTAyNzpvcmlnaW46YWVzLTI1Ni1jZmI6cGxhaW46UlZoT00xTXpaVkZ3YWtVM1JVcDFPQT09Lz9ncm91cD1hSFIwY0hNNkx5OTJNbkpoZVhObExtTnZiUT09JnJlbWFya3M9OEorSHQvQ2ZoN3BmVWxWZjVMK0U1NzJYNXBhdjZJR1U2WUtt",
 		},
 	}
 	for _, tt := range tests {
