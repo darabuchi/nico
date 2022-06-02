@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-
+	
 	"github.com/Dreamacro/clash/adapter"
 	"github.com/Dreamacro/clash/adapter/outbound"
 	"github.com/darabuchi/log"
@@ -23,14 +23,14 @@ func ParseClash(m map[string]any) (AdapterProxy, error) {
 	p, err := adapter.ParseProxy(m)
 	if err != nil {
 		log.Errorf("err:%v", err)
-
+		
 		if strings.Contains(err.Error(), "unsupport proxy type") {
 			return nil, ErrUnsupportedType
 		}
-
+		
 		return nil, err
 	}
-
+	
 	return NewProxyAdapter(p, m)
 }
 
@@ -41,7 +41,7 @@ func ParseClashJson(s []byte) (AdapterProxy, error) {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	return ParseClash(m)
 }
 
@@ -52,21 +52,23 @@ func ParseClashYaml(s []byte) (AdapterProxy, error) {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	return ParseClash(m)
 }
 
 func ParseV2ray(s string) (AdapterProxy, error) {
 	s = strings.TrimSuffix(s, "\n")
 	s = strings.TrimSuffix(s, "\r")
-
+	
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	switch u.Scheme {
+	case "http":
+		return ParseLinkHttp(s)
 	case "trojan":
 		return ParseLinkTrojan(s)
 	case "vmess":
@@ -89,25 +91,25 @@ func ParseLinkSSR(s string) (AdapterProxy, error) {
 		//
 		return nil, errors.New("invalid ssr url")
 	}
-
+	
 	port, _ := strconv.Atoi(params[1])
-
+	
 	protocol := params[2]
 	obfs := params[4]
 	cipher := params[3]
-
+	
 	suffix := strings.Split(params[5], "/?")
 	if len(suffix) != 2 {
 		return nil, errors.New("invalid ssr url")
 	}
-
+	
 	password := Base64Decode(suffix[0])
-
+	
 	m, err := url.ParseQuery(suffix[1])
 	if err != nil {
 		return nil, err
 	}
-
+	
 	var obfsParam, protocolParam, name string
 	for k, v := range m {
 		de := Base64Decode(v[0])
@@ -120,7 +122,7 @@ func ParseLinkSSR(s string) (AdapterProxy, error) {
 			name = de
 		}
 	}
-
+	
 	if protocol == "origin" && obfs == "plain" {
 		switch cipher {
 		case "aes-128-gcm", "aes-192-gcm", "aes-256-gcm",
@@ -142,7 +144,7 @@ func ParseLinkSSR(s string) (AdapterProxy, error) {
 			return nil, errors.New("invalid ssr url")
 		}
 	}
-
+	
 	opt := outbound.ShadowSocksROption{
 		BasicOption:   outbound.BasicOption{},
 		Name:          name,
@@ -156,15 +158,15 @@ func ParseLinkSSR(s string) (AdapterProxy, error) {
 		ProtocolParam: protocolParam,
 		UDP:           true,
 	}
-
+	
 	log.Debugf("ssr opt:%+v", opt)
-
+	
 	at, err := outbound.NewShadowSocksR(opt)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
@@ -180,36 +182,36 @@ func ParseLinkSS(s string) (AdapterProxy, error) {
 		bu.Fragment = ""
 		urlStr = "ss://" + Base64Decode(strings.TrimPrefix(bu.String(), "ss://"))
 	}
-
+	
 	log.Debugf("urlStr:%s", urlStr)
-
+	
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	if fragment == "" {
 		fragment = u.Fragment
 	}
-
+	
 	port, _ := strconv.Atoi(u.Port())
-
+	
 	var cipher, password string
 	// 对username解析
 	userStr := Base64Decode(u.User.String())
-
+	
 	log.Debugf("userStr:%s", userStr)
-
+	
 	userSplit := strings.Split(userStr, ":")
 	if len(userSplit) > 0 {
 		cipher = userSplit[0]
 	}
-
+	
 	if len(userSplit) > 1 {
 		password = userSplit[1]
 	}
-
+	
 	opt := outbound.ShadowSocksOption{
 		BasicOption: outbound.BasicOption{},
 		Name:        fragment,
@@ -221,15 +223,44 @@ func ParseLinkSS(s string) (AdapterProxy, error) {
 		Plugin:      "",
 		PluginOpts:  nil,
 	}
-
+	
 	log.Debugf("ss opt:%+v", opt)
-
+	
 	at, err := outbound.NewShadowSocks(opt)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
+	
+	return NewProxyAdapter(adapter.NewProxy(at), opt)
+}
 
+func ParseLinkHttp(s string) (AdapterProxy, error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return nil, err
+	}
+	
+	port, _ := strconv.Atoi(u.Port())
+	
+	opt := outbound.HttpOption{
+		BasicOption:    outbound.BasicOption{},
+		Name:           u.Fragment,
+		Server:         u.Hostname(),
+		Port:           port,
+		SkipCertVerify: true,
+	}
+	
+	if u.User != nil {
+		opt.UserName = u.User.Username()
+		opt.Password, _ = u.User.Password()
+	}
+	
+	log.Debugf("trojan opt:%+v", opt)
+	
+	at := outbound.NewHttp(opt)
+	
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
@@ -239,12 +270,12 @@ func ParseLinkTrojan(s string) (AdapterProxy, error) {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	sni := u.Query().Get("sni")
 	if sni == "" {
 		sni = u.Hostname()
 	}
-
+	
 	// 处理ws
 	var wsOpt outbound.WSOptions
 	if u.Query().Get("ws") != "1" || strings.ToLower(u.Query().Get("ws")) == "true" {
@@ -255,26 +286,26 @@ func ParseLinkTrojan(s string) (AdapterProxy, error) {
 			EarlyDataHeaderName: "",
 		}
 	}
-
+	
 	transformType := u.Query().Get("type")
 	transformType, _ = url.QueryUnescape(transformType)
-
+	
 	var alpn []string
 	if transformType == "h2" {
 		alpn = append(alpn, transformType)
 	}
-
+	
 	for _, val := range strings.Split(u.Query().Get("alpn"), ",") {
 		if val == "" {
 			continue
 		}
 		alpn = append(alpn, val)
 	}
-
+	
 	alpn = pie.Strings(alpn).Unique()
-
+	
 	port, _ := strconv.Atoi(u.Port())
-
+	
 	opt := outbound.TrojanOption{
 		BasicOption: outbound.BasicOption{
 			Interface:   "",
@@ -294,15 +325,15 @@ func ParseLinkTrojan(s string) (AdapterProxy, error) {
 		},
 		WSOpts: wsOpt,
 	}
-
+	
 	log.Debugf("trojan opt:%+v", opt)
-
+	
 	at, err := outbound.NewTrojan(opt)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
@@ -312,22 +343,22 @@ func ParseLinkVless(s string) (AdapterProxy, error) {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	sni := u.Query().Get("sni")
 	if sni == "" {
 		sni = u.Hostname()
 	}
-
+	
 	transformType := u.Query().Get("type")
 	transformType, _ = url.QueryUnescape(transformType)
-
+	
 	var alpn []string
 	if transformType == "h2" {
 		alpn = append(alpn, transformType)
 	}
-
+	
 	port, _ := strconv.Atoi(u.Port())
-
+	
 	opt := outbound.VlessOption{
 		Name:   u.Fragment,
 		Server: u.Hostname(),
@@ -341,7 +372,7 @@ func ParseLinkVless(s string) (AdapterProxy, error) {
 			if u.Query().Get("type") != "" {
 				return u.Query().Get("type")
 			}
-
+			
 			return "tcp"
 		}(),
 		WSPath:         u.Query().Get("path"),
@@ -355,15 +386,15 @@ func ParseLinkVless(s string) (AdapterProxy, error) {
 		}(),
 		Flow: u.Query().Get("flow"),
 	}
-
+	
 	log.Debugf("vless opt:%+v", opt)
-
+	
 	at, err := outbound.NewVless(opt)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
@@ -373,7 +404,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 	m, err := utils.NewMapWithJson([]byte(base64Str))
 	if err != nil {
 		log.Errorf("err:%v", err)
-
+		
 		u, err := url.Parse(s)
 		if err != nil {
 			log.Errorf("err:%v", err)
@@ -381,19 +412,19 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 		} else {
 			u.Host = Base64Decode(u.Host)
 		}
-
+		
 		urlStr, err := url.QueryUnescape(u.String())
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return nil, err
 		}
-
+		
 		u, err = url.Parse(urlStr)
 		if err != nil {
 			log.Errorf("err:%v", err)
 			return nil, err
 		}
-
+		
 		var wsOpts outbound.WSOptions
 		var network string
 		switch u.Query().Get("obfs") {
@@ -408,7 +439,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 				EarlyDataHeaderName: "",
 			}
 		}
-
+		
 		opt = outbound.VmessOption{
 			BasicOption: outbound.BasicOption{},
 			Name:        u.Query().Get("remarks"),
@@ -439,7 +470,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 			GrpcOpts:       outbound.GrpcOptions{},
 			WSOpts:         wsOpts,
 		}
-
+		
 	} else {
 		var wsOpts outbound.WSOptions
 		switch m.GetString("net") {
@@ -453,7 +484,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 				EarlyDataHeaderName: "",
 			}
 		}
-
+		
 		opt = outbound.VmessOption{
 			BasicOption: outbound.BasicOption{},
 			Name:        m.GetString("ps"),
@@ -461,7 +492,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 				if m.GetString("add") != "" {
 					return m.GetString("add")
 				}
-
+				
 				return m.GetString("host")
 			}(),
 			Port:    m.GetInt("port"),
@@ -471,7 +502,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 				if m.GetString("scy") != "" {
 					return m.GetString("scy")
 				}
-
+				
 				return "auto"
 			}(),
 			UDP:     true,
@@ -481,7 +512,7 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 				if err != nil {
 					return false
 				}
-
+				
 				switch utils.CheckValueType(val) {
 				case utils.ValueString:
 					return m.GetString("tls") != ""
@@ -499,14 +530,14 @@ func ParseLinkVmess(s string) (AdapterProxy, error) {
 			WSOpts:         wsOpts,
 		}
 	}
-
+	
 	log.Debugf("vmess opt:%+v", opt)
-
+	
 	at, err := outbound.NewVmess(opt)
 	if err != nil {
 		log.Errorf("err:%v", err)
 		return nil, err
 	}
-
+	
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
