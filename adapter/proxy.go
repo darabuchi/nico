@@ -132,7 +132,7 @@ type ProxyAdapter struct {
 	tracker *TotalTracker
 }
 
-func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
+func NewProxyAdapter(adapter constant.Proxy, opt any) (*ProxyAdapter, error) {
 	p := &ProxyAdapter{
 		Proxy:   adapter,
 		name:    adapter.Name(),
@@ -151,6 +151,7 @@ func NewProxyAdapter(adapter constant.Proxy, opt any) (AdapterProxy, error) {
 		outbound.VmessOption,
 		outbound.ShadowSocksROption,
 		outbound.HttpOption,
+		outbound.Socks5Option,
 		outbound.TrojanOption:
 		err := decode(p.opt, &v)
 		if err != nil {

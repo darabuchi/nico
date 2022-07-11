@@ -25,6 +25,9 @@ require (
 	github.com/eddieivan01/nic v0.3.1 // indirect
 	github.com/ethereum/go-ethereum v1.10.11 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
+	github.com/go-playground/locales v0.14.0 // indirect
+	github.com/go-playground/universal-translator v0.18.0 // indirect
+	github.com/go-playground/validator/v10 v10.11.0 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
 	github.com/gofiber/fiber/v2 v2.18.0 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
@@ -35,6 +38,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
+	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible // indirect
 	github.com/lestrrat-go/strftime v1.0.5 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect

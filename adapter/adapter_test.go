@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "vmess://Y2hhY2hhMjAtcG9seTEzMDU6MTdmY2NjZjctMzRhZC0zYzRiLWI0N2MtNWEzOGU4OTk4M2M4QGJhaXlpbmdjdS5iYWljbS54eXo6NzQ2?remarks=%E9%A9%AC%E6%9D%A5%E8%A5%BF%E4%BA%9A%20%7C%20%E7%99%BD%E9%8A%80%20%7C%200.05X%20%7C%20%E5%8E%9F%E7%94%9F%E5%8A%A8%E6%80%81IP%20%7C%20D%20%7C&obfsParam=ssl.baiyu.click&path=/v2ray&obfs=websocket&tls=1&peer=ssl.baiyu.click",
+			args: "vmess://eyJhZGQiOiIxMDMuMTY3LjE5Ny4yMDAiLCJ2IjoyLCJwcyI6Iui2iuWNl18xIiwicG9ydCI6IjgwIiwiaWQiOiJkOTdlZTczNy03YmMwLTRkY2EtYWNmMS04NTEzNWVkNGQ5N2UiLCJhaWQiOiIwIiwic2N5IjoiYXV0byIsIm5ldCI6IndzIiwidHlwZSI6IiIsImhvc3QiOiJIVlBOLmFrYW1haXplZC5uZXQiLCJ0bHMiOiIiLCJwYXRoIjoiLyJ9",
 		},
 	}
 	for _, tt := range tests {
@@ -110,4 +110,35 @@ func TestParseV2ray(t *testing.T) {
 			t.Logf("%s delay is %d", p.Name(), delay)
 		})
 	}
+}
+
+func TestYaml(t *testing.T) {
+	s := `{
+        "tls": false,
+        "udp": true,
+        "name": "_油管：全网最强白嫖 311",
+        "port": 443,
+        "type": "vmess",
+        "uuid": "c0156451-4efb-45e2-84fc-8d315c4650db",
+        "cipher": "auto",
+        "server": "51.81.223.29",
+        "alterId": 32,
+        "unique_id": "dcf1b6a6d135577995a79c9a4145dc2903d7fb13b79023400a7fd76cd1e044c0",
+        "skip-cert-verify": true
+    }`
+	
+	var m map[string]any
+	err := json.Unmarshal([]byte(s), &m)
+	if err != nil {
+	    t.Errorf("err:%v", err)
+	    return
+	}
+	
+	buf, err := json.Marshal(m)
+	if err != nil {
+	    t.Errorf("err:%v", err)
+	    return
+	}
+	
+	t.Log(string(buf))
 }

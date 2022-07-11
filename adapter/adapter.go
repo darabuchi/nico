@@ -17,9 +17,10 @@ import (
 
 var (
 	ErrUnsupportedType = errors.New("unsupported type")
+	ErrEmptyDate       = errors.New("empty date")
 )
 
-func ParseClash(m map[string]any) (AdapterProxy, error) {
+func ParseClash(m map[string]any) (*ProxyAdapter, error) {
 	p, err := adapter.ParseProxy(m)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -34,7 +35,7 @@ func ParseClash(m map[string]any) (AdapterProxy, error) {
 	return NewProxyAdapter(p, m)
 }
 
-func ParseClashJson(s []byte) (AdapterProxy, error) {
+func ParseClashJson(s []byte) (*ProxyAdapter, error) {
 	var m map[string]any
 	err := json.Unmarshal(s, &m)
 	if err != nil {
@@ -45,7 +46,7 @@ func ParseClashJson(s []byte) (AdapterProxy, error) {
 	return ParseClash(m)
 }
 
-func ParseClashYaml(s []byte) (AdapterProxy, error) {
+func ParseClashYaml(s []byte) (*ProxyAdapter, error) {
 	var m map[string]any
 	err := yaml.Unmarshal(s, &m)
 	if err != nil {
@@ -56,9 +57,13 @@ func ParseClashYaml(s []byte) (AdapterProxy, error) {
 	return ParseClash(m)
 }
 
-func ParseV2ray(s string) (AdapterProxy, error) {
+func ParseV2ray(s string) (*ProxyAdapter, error) {
 	s = strings.TrimSuffix(s, "\n")
 	s = strings.TrimSuffix(s, "\r")
+	
+	if strings.TrimSpace(s) == "" {
+		return nil, ErrEmptyDate
+	}
 	
 	u, err := url.Parse(s)
 	if err != nil {
@@ -69,7 +74,9 @@ func ParseV2ray(s string) (AdapterProxy, error) {
 	switch u.Scheme {
 	case "http":
 		return ParseLinkHttp(s)
-	case "trojan":
+	case "socket5", "socket":
+		return ParseLinkSocket5(s)
+	case "trojan", "trojan-go":
 		return ParseLinkTrojan(s)
 	case "vmess":
 		return ParseLinkVmess(s)
@@ -80,11 +87,12 @@ func ParseV2ray(s string) (AdapterProxy, error) {
 	case "ssr":
 		return ParseLinkSSR(s)
 	default:
+		log.Warnf("unsupport v2ray scheme:%s(%s)", u.Scheme, s)
 		return nil, ErrUnsupportedType
 	}
 }
 
-func ParseLinkSSR(s string) (AdapterProxy, error) {
+func ParseLinkSSR(s string) (*ProxyAdapter, error) {
 	urlStr := Base64Decode(strings.TrimPrefix(s, "ssr://"))
 	params := strings.Split(urlStr, `:`)
 	if len(params) != 6 {
@@ -170,7 +178,7 @@ func ParseLinkSSR(s string) (AdapterProxy, error) {
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkSS(s string) (AdapterProxy, error) {
+func ParseLinkSS(s string) (*ProxyAdapter, error) {
 	var urlStr string
 	var fragment string
 	bu, err := url.Parse(s)
@@ -235,7 +243,7 @@ func ParseLinkSS(s string) (AdapterProxy, error) {
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkHttp(s string) (AdapterProxy, error) {
+func ParseLinkHttp(s string) (*ProxyAdapter, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -257,14 +265,43 @@ func ParseLinkHttp(s string) (AdapterProxy, error) {
 		opt.Password, _ = u.User.Password()
 	}
 	
-	log.Debugf("trojan opt:%+v", opt)
+	log.Debugf("http opt:%+v", opt)
 	
 	at := outbound.NewHttp(opt)
 	
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkTrojan(s string) (AdapterProxy, error) {
+func ParseLinkSocket5(s string) (*ProxyAdapter, error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		log.Errorf("err:%v", err)
+		return nil, err
+	}
+	
+	port, _ := strconv.Atoi(u.Port())
+	
+	opt := outbound.Socks5Option{
+		BasicOption:    outbound.BasicOption{},
+		Name:           u.Fragment,
+		Server:         u.Hostname(),
+		Port:           port,
+		SkipCertVerify: true,
+	}
+	
+	if u.User != nil {
+		opt.UserName = u.User.Username()
+		opt.Password, _ = u.User.Password()
+	}
+	
+	log.Debugf("http opt:%+v", opt)
+	
+	at := outbound.NewSocks5(opt)
+	
+	return NewProxyAdapter(adapter.NewProxy(at), opt)
+}
+
+func ParseLinkTrojan(s string) (*ProxyAdapter, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -337,7 +374,7 @@ func ParseLinkTrojan(s string) (AdapterProxy, error) {
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkVless(s string) (AdapterProxy, error) {
+func ParseLinkVless(s string) (*ProxyAdapter, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		log.Errorf("err:%v", err)
@@ -398,7 +435,7 @@ func ParseLinkVless(s string) (AdapterProxy, error) {
 	return NewProxyAdapter(adapter.NewProxy(at), opt)
 }
 
-func ParseLinkVmess(s string) (AdapterProxy, error) {
+func ParseLinkVmess(s string) (*ProxyAdapter, error) {
 	var opt outbound.VmessOption
 	base64Str := Base64Decode(strings.TrimPrefix(s, "vmess://"))
 	m, err := utils.NewMapWithJson([]byte(base64Str))
