@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-
+	
 	"github.com/darabuchi/nico/adapter"
 	"gopkg.in/yaml.v3"
 )
@@ -24,13 +24,13 @@ func TestParseClash(t *testing.T) {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	delay, err := p.URLTest(context.TODO(), "https://www.google.com")
 	if err != nil {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	t.Logf("delay is %d", delay)
 }
 
@@ -40,19 +40,19 @@ func TestParseClashJson(t *testing.T) {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	p, err := adapter.ParseClashJson(buf)
 	if err != nil {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	delay, err := p.URLTest(context.TODO(), "https://www.google.com")
 	if err != nil {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	t.Logf("delay is %d", delay)
 }
 
@@ -62,19 +62,19 @@ func TestParseClashYaml(t *testing.T) {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	p, err := adapter.ParseClashYaml(buf)
 	if err != nil {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	delay, err := p.URLTest(context.TODO(), "https://www.google.com")
 	if err != nil {
 		t.Errorf("err:%v", err)
 		return
 	}
-
+	
 	t.Logf("delay is %d", delay)
 }
 
@@ -87,7 +87,7 @@ func TestParseV2ray(t *testing.T) {
 	}{
 		{
 			name: "",
-			args: "vmess://eyJhZGQiOiIxMDMuMTY3LjE5Ny4yMDAiLCJ2IjoyLCJwcyI6Iui2iuWNl18xIiwicG9ydCI6IjgwIiwiaWQiOiJkOTdlZTczNy03YmMwLTRkY2EtYWNmMS04NTEzNWVkNGQ5N2UiLCJhaWQiOiIwIiwic2N5IjoiYXV0byIsIm5ldCI6IndzIiwidHlwZSI6IiIsImhvc3QiOiJIVlBOLmFrYW1haXplZC5uZXQiLCJ0bHMiOiIiLCJwYXRoIjoiLyJ9",
+			args: "vmess://ew0KICAidiI6ICIyIiwNCiAgInBzIjogIue+juWbvTAzLeino+mUgea1geWqkuS9k+OAkOWbuuWumklQ44CRIiwNCiAgImFkZCI6ICJ1czAzLmNjdHZ2aXAuY2YiLA0KICAicG9ydCI6ICI0Njc2NCIsDQogICJpZCI6ICI0NTJjMGQwNi02YTFmLTRhYjUtOTVhOC1lNGU0MzU4ZTk0MTYiLA0KICAiYWlkIjogIjAiLA0KICAic2N5IjogImF1dG8iLA0KICAibmV0IjogIndzIiwNCiAgInR5cGUiOiAibm9uZSIsDQogICJob3N0IjogIiIsDQogICJwYXRoIjogIi8iLA0KICAidGxzIjogIiIsDQogICJzbmkiOiAiIiwNCiAgImFscG4iOiAiIg0KfQ==\n",
 		},
 	}
 	for _, tt := range tests {
@@ -97,16 +97,16 @@ func TestParseV2ray(t *testing.T) {
 				t.Errorf("err:%v", err)
 				return
 			}
-
+			
 			t.Logf("%s", p.Sub4V2ray())
 			t.Logf("%s", p.Sub4Clash())
-
+			
 			delay, err := p.URLTest(context.TODO(), "https://www.google.com")
 			if err != nil {
 				t.Errorf("err:%v", err)
 				return
 			}
-
+			
 			t.Logf("%s delay is %d", p.Name(), delay)
 		})
 	}
@@ -130,14 +130,14 @@ func TestYaml(t *testing.T) {
 	var m map[string]any
 	err := json.Unmarshal([]byte(s), &m)
 	if err != nil {
-	    t.Errorf("err:%v", err)
-	    return
+		t.Errorf("err:%v", err)
+		return
 	}
 	
 	buf, err := json.Marshal(m)
 	if err != nil {
-	    t.Errorf("err:%v", err)
-	    return
+		t.Errorf("err:%v", err)
+		return
 	}
 	
 	t.Log(string(buf))

@@ -465,7 +465,7 @@ func ParseLinkVmess(s string) (*ProxyAdapter, error) {
 		var wsOpts outbound.WSOptions
 		var network string
 		switch u.Query().Get("obfs") {
-		case "websocket":
+		case "websocket", "ws":
 			network = "ws"
 			wsOpts = outbound.WSOptions{
 				Path: u.Query().Get("path"),
@@ -509,19 +509,6 @@ func ParseLinkVmess(s string) (*ProxyAdapter, error) {
 		}
 		
 	} else {
-		var wsOpts outbound.WSOptions
-		switch m.GetString("net") {
-		case "ws":
-			wsOpts = outbound.WSOptions{
-				Path: m.GetString("path"),
-				Headers: map[string]string{
-					"Host": m.GetString("host"),
-				},
-				MaxEarlyData:        0,
-				EarlyDataHeaderName: "",
-			}
-		}
-		
 		opt = outbound.VmessOption{
 			BasicOption: outbound.BasicOption{},
 			Name:        m.GetString("ps"),
@@ -559,13 +546,40 @@ func ParseLinkVmess(s string) (*ProxyAdapter, error) {
 					return false
 				}
 			}(),
-			SkipCertVerify: true,
-			ServerName:     "",
-			HTTPOpts:       outbound.HTTPOptions{},
-			HTTP2Opts:      outbound.HTTP2Options{},
-			GrpcOpts:       outbound.GrpcOptions{},
-			WSOpts:         wsOpts,
+			SkipCertVerify:      true,
+			ServerName:          m.GetString("sni"),
+			HTTPOpts:            outbound.HTTPOptions{},
+			HTTP2Opts:           outbound.HTTP2Options{},
+			GrpcOpts:            outbound.GrpcOptions{},
+			WSOpts:              outbound.WSOptions{},
+			PacketAddr:          false,
+			AuthenticatedLength: false,
 		}
+		
+		switch m.GetString("net") {
+		case "ws":
+			opt.WSOpts = outbound.WSOptions{
+				Path: m.GetString("path"),
+				Headers: map[string]string{
+					"Host": m.GetString("host"),
+				},
+				MaxEarlyData:        0,
+				EarlyDataHeaderName: "",
+			}
+		case "grpc":
+			opt.GrpcOpts = outbound.GrpcOptions{
+				GrpcServiceName: m.GetString("path"),
+			}
+			opt.ServerName = m.GetString("host")
+		case "h2":
+			opt.HTTP2Opts = outbound.HTTP2Options{
+				Host: []string{
+					m.GetString("host"),
+				},
+				Path: m.GetString("path"),
+			}
+		}
+		
 	}
 	
 	log.Debugf("vmess opt:%+v", opt)
